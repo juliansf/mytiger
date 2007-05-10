@@ -77,6 +77,7 @@ rule Token =
   | `/`                   { DIV } (* Sin problemas con este y los comments? *)
   | ":="                  { ASS }
   | `=`                   { EQ }
+  | "<>"				  { NEQ }
   | `>`                   { GT }
   | ">="                  { GEQ }
   | `<`                   { LT }
