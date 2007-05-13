@@ -1,0 +1,3 @@
+let var x:= let var x:=5 in 2*x end
+	function f ():string = "hola"
+in end
