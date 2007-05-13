@@ -3,6 +3,7 @@ struct
 
 open tigerabs
 open tigertab
+open TigerError
 
 type depth = int
 type escEnv = (string, depth * bool ref) tigertab.Tabla
@@ -12,7 +13,7 @@ fun travVar env d s =
 	SimpleVar s =>
 		(case tabBusca(s, env) of
 		SOME (dd, b) => if d>dd then b:=true else ()
-		| NONE => raise Fail ("escape?? "^s^" inexist."))
+		| NONE => Error ( ErrorEscapeVariableNotExists s, 0 ))
 	| FieldVar(v, s) => travVar env d v
 	| SubscriptVar(v, e) =>
 		(travVar env d v; travExp env d e)
