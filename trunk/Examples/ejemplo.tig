@@ -1,5 +1,5 @@
 let
-    type R = {a:int, b:string}
+    type R = {a:int, b:string, c:R}
     type A = array of int
     type i = int
     var j:A := A[2] of 10 
@@ -7,5 +7,7 @@ let
     var y:string := "hola, que tal?"
     function f(a:R, b:i, c:A):int = 1
 in
-  x+1
+  let var x:int := 2 in
+    for j:=1 to 10 do let var j:=2 in x+2 end
+  end
 end
