@@ -1,0 +1,10 @@
+let function f ( a:int, b:string ):int = (b; a)
+	var z:string := ""
+	var x := 1
+	var y:int := 3
+in
+
+
+
+	x := z+y
+end
