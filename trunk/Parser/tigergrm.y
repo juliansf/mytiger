@@ -135,7 +135,7 @@ fundec : FUNCTION id PI tyflds PD IGUAL exp
 							{ FunctionDec[({name=$2, params=$4,
 								result=SOME $7, body=$9}, P())] }
 	;
-tyfield : id DOSP id		{ {escape=ref false, name=$1, typ=NameTy $3} }
+tyfield : id DOSP id		{ {escape=ref false, name=$1, typ=$3} }
 	;
 args : exp COMA args		{ $1::$3 }
 	| exp					{ [$1] }
