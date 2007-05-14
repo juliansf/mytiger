@@ -14,7 +14,7 @@ fun ppexpr pps e0 =
 			add_string pps " escape=";
 			add_string pps (Bool.toString(!escape));
 			add_string pps ", typ=";
-			ppt typ;
+			add_string pps typ;
 			add_string pps "}"; add_break pps (0, 1))
 		and ppd(FunctionDec flist) =
 			(begin_block pps INCONSISTENT 0;
