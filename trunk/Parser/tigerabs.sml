@@ -38,5 +38,5 @@ and ty = NameTy of symbol
 and oper = PlusOp | MinusOp | TimesOp | DivideOp
 	| EqOp | NeqOp | LtOp | LeOp | GtOp | GeOp
 
-withtype field = {name: symbol, escape: bool ref, typ: ty}
+withtype field = {name: symbol, escape: bool ref, typ: symbol}
 end
