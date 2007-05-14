@@ -9,7 +9,7 @@ exception noExiste
 exception noExisteS of string
 
 fun tabNueva() = mkPolyTable(100, noExiste)
-fun fromTab t =
+fun fromTable t =
 	let	val t' = tabNueva()
 	in	apply (fn x => insert t' x) t; t' end
 fun name x = x
@@ -19,7 +19,9 @@ fun tabEsta(s, t) =
 	| NONE => false
 fun tabInserta(s, e, t) = (peekInsert t (s, e); copy t)
 fun tabRInserta(s, e, t) = (insert t (s, e); copy t)
+fun tabRInsert t (s,e) = tabRInserta(s, e, t)
 fun tabBusca(s, t) = peek t s
+fun tabSearch t s = peek t s
 fun tabSaca(s, t) =
 	case tabBusca(s, t) of
 	SOME t => t
