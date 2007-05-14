@@ -6,12 +6,14 @@ exception yaExiste of string
 exception noExiste
 exception noExisteS of string
 val tabNueva : unit -> (''a, 'b) Tabla
-val fromTab : (''a, 'b) Tabla -> (''a, 'b) Tabla
+val fromTable : (''a, 'b) Tabla -> (''a, 'b) Tabla
 val name : 'a -> 'a
 val tabEsta : ''a * (''a, 'b) Tabla -> bool
 val tabInserta : ''a * 'b * (''a, 'b) Tabla -> (''a, 'b) Tabla
 val tabRInserta : ''a * 'b * (''a, 'b) Tabla -> (''a, 'b) Tabla
+val tabRInsert : (''a, 'b) Tabla -> ''a * 'b -> (''a, 'b) Tabla
 val tabBusca : ''a * (''a, 'b) Tabla -> 'b option
+val tabSearch: (''a, 'b) Tabla -> ''a -> 'b option
 val tabSaca : ''a * (''a, 'b) Tabla -> 'b
 val tabAplica : ('a -> 'b) * (''c, 'a) Tabla -> (''c, 'b) Tabla
 val tabAAplica : ('a -> ''c) * ('b -> 'd) * ('a, 'b) Tabla -> (''c, 'd) Tabla
