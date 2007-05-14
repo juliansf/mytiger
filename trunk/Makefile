@@ -3,16 +3,16 @@
 
 # Unix makefile for tigermain
 
-HOME=/usr/share
-MOSMLHOME=${HOME}/mosml
+HOME=/usr
+MOSMLHOME=${HOME}/lib/mosml
 MOSMLTOOLS=camlrunm $(MOSMLHOME)/tools
 MOSMLLEX=mosmllex
 MOSMLYACC=mosmlyac -v
 
 GCC=gcc
 CFLAGS= -g
-MOSMLC=${MOSMLHOME}/bin/mosmlc -c -liberal
-MOSMLL=${MOSMLHOME}/bin/mosmlc
+MOSMLC=${HOME}/bin/mosmlc -c -liberal
+MOSMLL=${HOME}/bin/mosmlc
 
 # Unix
 REMOVE=rm -f

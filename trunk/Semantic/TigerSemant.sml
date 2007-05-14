@@ -105,11 +105,23 @@ struct
 						end
 				| trexp ( RecordExp ({ fields, typ }, pos) ) = 
 						let val ty = tabSearch tenv typ
+                            fun checkFieldType (name, typ) = 
+                                case List.find (fn (x,y) => x = name) fields of
+                                    SOME (sym, exp) =>  let
+                                                            val {exp=expexp, ty=tyexp} = trexp exp
+                                                        in
+                                                            if weakCompTypes(tyexp,typ) then {exp=NN, ty=typ}
+                                                            else Error ( ErrorFieldTypeMistmatch, pos)
+                                                        end
+                                    NONE => Error (ErrorUndefinedField, pos)
 						in
 							case ty of
-								SOME (RECORD x) => { exp=NN, ty=RECORD x }
+								SOME ( RECORD (fl, _) ) => 
+                                    List.map checkFieldType fl
+                                    (* Falta ver que tiene que devolver *)       
 							|	_ => Error ( ErrorUndefindedType typ, pos)
 						end
+
 				| trexp ( SeqExp ([], pos) ) = { exp=NN, ty=UNIT }
 				| trexp (	SeqExp (exp :: [], pos) ) = trexp exp
 				| trexp ( SeqExp (exp :: expl, pos) ) = ( trexp exp; trexp (SeqExp (expl, pos)) )	
@@ -181,9 +193,10 @@ struct
 							val { exp=expinit, ty=tyinit } = trexp init
 						in
 							if not (isInt(tysize)) then 
-								Error ( ErrorArrayTypeMistmach, pos ) else ();
-							if not (weakCompTypes(aty, tyinit)) then  
 								Error ( ErrorArraySizeTypeIsNotInt tysize, pos ) else ();
+							if not (weakCompTypes(aty, tyinit)) then  
+                                Error ( ErrorArrayTypeMistmach, pos ) else ();							
+
 							{ exp=NN, ty=ARRAY (aty, auniq) }
 						end						
 		in
