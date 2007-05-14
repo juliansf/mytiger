@@ -1,29 +1,16 @@
-structure TigerSemant :> TIGERSEMANT =
+structure TigerSemant :> TigerSemant =
 struct
-	open TigerTab
+	open tigerabs
+	open tigertab
 	open TigerEnv
-	open TigerTree
+	open TigerTrace
 	open TigerTypes
+	open TigerUtils
+	open TigerError
 	
-	type venv = (String, enventry) tabla 
-	type tenv = (String, ty) tabla
-	type exty = { exp: tree, ty:ty }
-	
-	
-	(* Despues vemos donde va esta funcion *)
-	fun weakCompTypes ( a, b ) = 
-		case ( a, b ) of
-			( NIL, NIL ) => false (* VER ESTO!!! *)
-		| ( UNIT, UNIT ) => true
-		|	( INT _, INT _ ) => true
-		| ( STRING, STRING ) => true
-		| ( RECORD _, NIL ) => true
-		| ( NIL, RECORD _ ) => true
-		| ( RECORD (_,uniq1), RECORD (_,uniq2) ) => uniq1 = uniq2
-		| ( ARRAY (_,uniq1), ARRAY (_,uniq2) ) => uniq1 = uniq2
-		| _ => Error ( ErrorAUCH, pos)(* Completar. Faltaria para NAME que no se como se hace *)	
-			
-	
+	type venv = (string, enventry) Tabla 
+	type tenv = (string, ty) Tabla
+	type expty = { exp: TigerTrace.tree, ty:ty }
 	
 	(******************************************************)
 	(* TransExp:                                          *)
@@ -42,7 +29,7 @@ struct
 							(* Buscamos la funcion en el entorno *)
 							case tabSearch venv func of
 								(* Obtenemos los parametros formales y el tipo del resultado *)
-								FunEntry { formals, result } => { formals=formals, result=result }
+								SOME (FunEntry { formals, result }) => { formals=formals, result=result }
 							| _ => Error ( ErrorUndefinedFunction func, pos )
 							
 							(* Obtenemos los tipos de los argumentos pasados a la funcion *)
@@ -57,14 +44,14 @@ struct
 							val count = ref 1
 							fun equalTypes (a, b) = 
 								if weakCompTypes ( a, b ) then ( count := !count + 1; true )
-								else Error ( ErrorWrongFunArgType count, pos )
+								else Error ( ErrorWrongFunArgType (func, !count), pos )
 						in
 							(* La cantidad de argumentos pasados es la correcta *)
 							if List.length tyList = List.length formals
 							then 
 								( 
 									(* Se chequean los parametros *)
-									ListPair.all equalTypes tyList formals; 
+									ListPair.all equalTypes (tyList, formals); 
 									{ exp=NN, ty=result } 
 								)
 							else
@@ -81,26 +68,26 @@ struct
 							
 							fun i () = (* Int *)
 								case ( tyleft, tyright ) of
-									( INT _, INT _) => { exp=NN, ty=INT }
+									( INT _, INT _) => { exp=NN, ty=INT RO }
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 							
 							fun is () = (* Int, String *)
 								case ( tyleft, tyright ) of
-									( INT _, INT _) => { exp=NN, ty=INT }
-								| ( STRING, STRING ) => { exp=NN, ty=INT }
+									( INT _, INT _) => { exp=NN, ty=INT RO }
+								| ( STRING, STRING ) => { exp=NN, ty=INT RO }
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 								
 							fun isar () = (* Int, String, Array, Record *)
 								case ( tyleft, tyright ) of
-									( INT _, INT _) => { exp=NN, ty=INT }
-								| ( STRING, STRING ) => { exp=NN, ty=INT }
+									( INT _, INT _) => { exp=NN, ty=INT RO }
+								| ( STRING, STRING ) => { exp=NN, ty=INT RO }
 								| ( RECORD (_,uniq1), RECORD (_,uniq2) ) =>
-										if uniq1 = uniq2 then { exp=NN, ty=INT }
+										if uniq1 = uniq2 then { exp=NN, ty=INT RO }
 										else Error ( ErrorInvalidArgsTypesForOperator oper, pos )
-								| ( RECORD _, NIL ) => { exp=NN, ty=INT }
-								| ( NIL, RECORD _ ) => { exp=NN, ty=INT }
+								| ( RECORD _, NIL ) => { exp=NN, ty=INT RO }
+								| ( NIL, RECORD _ ) => { exp=NN, ty=INT RO }
 								| ( ARRAY (_,uniq1), ARRAY (_,uniq2) ) => 
-										if uniq1 = uniq2 then { exp=NN, ty=INT }
+										if uniq1 = uniq2 then { exp=NN, ty=INT RO }
 										else Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 						in
@@ -120,21 +107,21 @@ struct
 						let val ty = tabSearch tenv typ
 						in
 							case ty of
-								RECORD x => { exp=NN, ty=RECORD x }
+								SOME (RECORD x) => { exp=NN, ty=RECORD x }
 							|	_ => Error ( ErrorUndefindedType typ, pos)
 						end
 				| trexp ( SeqExp ([], pos) ) = { exp=NN, ty=UNIT }
 				| trexp (	SeqExp (exp :: [], pos) ) = trexp exp
-				| trexp ( SeqExp (exp :: expl) ) = ( trexp exp; trexp (SeqExp (expl, pos)) )	
+				| trexp ( SeqExp (exp :: expl, pos) ) = ( trexp exp; trexp (SeqExp (expl, pos)) )	
 						
 				| trexp ( AssignExp ({ var, exp }, pos) ) =
 						let
-							val { exp=expvar, ty=tyvar } = trexp var
+							val { exp=expvar, ty=tyvar } = transVar (venv, tenv, var, pos)
 							val { exp=expexp, ty=tyexp } = trexp exp
 						in
 							if tyvar = INT RO then Error ( ErrorReadOnlyVariable var, pos )
 							else 
-								if tyvar = tyexp then { exp=NN, ty=UNIT }
+								if weakCompTypes (tyvar, tyexp) then { exp=NN, ty=UNIT }
 								else Error ( ErrorAssignTypeMismatch var, pos )
 						end
 				| trexp ( IfExp ({ test, then', else' },pos) ) =
@@ -170,9 +157,9 @@ struct
 							val venv' = tabRInsert venv' (var, VarEntry { ty=INT RO } )
 							val { exp=expbody, ty=tybody } = transExp ( venv', tenv, body )
 						in 
-							if not (isInt tylo) then Error ( ErrorForLowExp lo, pos ) else ();
-							if not (isInt tyhi) then Error ( ErrorForHiExp hi, pos ) else ();
-							if tbody <> UNIT then Error ( ErrorForWrongBodyType, pos ) else ();
+							if not (isInt tylo) then Error ( ErrorForLowExp, pos ) else ();
+							if not (isInt tyhi) then Error ( ErrorForHiExp, pos ) else ();
+							if tybody <> UNIT then Error ( ErrorForWrongBodyType, pos ) else ();
 							{ exp=NN, ty=UNIT }
 						end
 				| trexp ( LetExp ({ decs, body }, pos) ) =
@@ -187,17 +174,17 @@ struct
 				| trexp ( BreakExp pos ) = { exp=NN, ty=UNIT }
 				| trexp ( ArrayExp ({typ, size, init}, pos) ) =
 						let
-							val aty = case tabSearch tenv typ of
-								SOME (ATY as ARRAY (t,_)) => t
-								| NONE => Error ( ErrorUndefinedType typ, pos )
-							val {exp=expsize, ty=tysize} = trexp size
-							val {exp=expinit, ty=tyinit} = trexp init
+							val (aty, auniq) = case tabSearch tenv typ of
+								SOME (ARRAY (t,u)) => (t,u)
+								| _ => Error ( ErrorUndefinedType typ, pos )
+							val { exp=expsize, ty=tysize } = trexp size
+							val { exp=expinit, ty=tyinit } = trexp init
 						in
-							if not (isInt(tySize)) then 
-								Error ( ErrorArrayTypeMistmach aty tyinit, pos ) else ();
+							if not (isInt(tysize)) then 
+								Error ( ErrorArrayTypeMistmach, pos ) else ();
 							if not (weakCompTypes(aty, tyinit)) then  
 								Error ( ErrorArraySizeTypeIsNotInt tysize, pos ) else ();
-							{exp=NN, ty=ATY}
+							{ exp=NN, ty=ARRAY (aty, auniq) }
 						end						
 		in
 			trexp expr
@@ -207,7 +194,7 @@ struct
 		let
 			val ty = case tabSearch venv v of
 				SOME (VarEntry { ty }) => ty
-			| NONE => Error ( ErrorUndefinedVariable v, pos )
+			| _ => Error ( ErrorUndefinedVariable v, pos )
 		in
 			{ exp=NN, ty=ty }
 		end
@@ -220,7 +207,7 @@ struct
 				RECORD (ml, _) => (
 					case List.find (fn (x,y) => x = symbol) ml of
 						SOME (sym,ty) => { exp=NN, ty=ty }
-					| NONE => Error ( ErrorRecordFieldUndefined sym, pos ) )
+					| NONE => Error ( ErrorRecordFieldUndefined (var, symbol), pos ) )
 			| _ => Error ( ErrorVariableIsNotRecord var, pos )
 		end
 			
@@ -232,17 +219,18 @@ struct
 			case tyvar of
 				ARRAY (ty, _) => 
 					if isInt tyexp then { exp=NN, ty=ty }
-					else Error ( ErrorArrayIndexIsNotInt ty, pos )
+					else Error ( ErrorArrayIndexIsNotInt, pos )
 			| _ => Error ( ErrorVariableIsNotArray var, pos )
 		end
 	
 	and transDec ( venv, tenv, VarDec ({ name, escape, typ=NONE, init}, pos ) ) =
 		let
-			val { exp, ty } = transExp ( venv, tenv, init )
-			val venv = tabRInsert venv ( name, VarEntry { ty=ty } )
+			val { exp=expinit, ty=tyinit } = transExp ( venv, tenv, init )
+			val tyinit = case tyinit of INT _ => INT RW | t => t
+			val venv = tabRInsert venv ( name, VarEntry { ty=tyinit } )
 		in
 			if tyinit <> UNIT then { venv=venv, tenv=tenv }
-			else Error ( ErrorVarDecInitIsUnit, pos )
+			else Error ( ErrorVarDecInitIsUnit name, pos )
 		end
 	
 	| transDec ( venv, tenv, VarDec ({ name, escape, typ=SOME ty, init }, pos ) ) =
@@ -254,15 +242,20 @@ struct
 			val { exp=expinit, ty=tyinit } = transExp ( venv, tenv, init )
 		in
 			if weakCompTypes ( ty', tyinit ) 
-			then { venv=tabRInsert venv ( name, VarEntry { ty=ty } ) }
-			else Error ( ErrorVarDecTypeMismatch ty tyinit, pos )
+			then { venv=tabRInsert venv ( name, VarEntry { ty=tyinit } ), tenv=tenv }
+			else Error ( ErrorVarDecTypeMismatch name, pos )
 	  end
 	
-	| transDec ( venv, tenv, lfuncs ) =
+	| transDec ( venv, tenv, FunctionDec lfuncs ) =
 		let 
 			fun trdec1 ({name, params, result, body}, pos) =
 				let
-					val formals = List.map (fn x => #typ(x)) params
+					fun chkType { name, escape, typ } =
+						case tabSearch tenv typ of
+							SOME t => t
+						| NONE => Error ( ErrorUndefinedType typ, pos )
+					val formals = List.map chkType params
+					
 					val result = case result of
 						SOME res => (
 							case tabSearch tenv res of
@@ -276,22 +269,55 @@ struct
 				
 			fun trdec2 ({name, params, result, body}, pos)=
 				let
-					val formals = List.map (fn x => {name= })
+					fun insertField env { name, escape, typ } =
+						case tabSearch tenv typ of
+							SOME ty => ( tabRInsert env (name, VarEntry{ ty=ty }); () )
+						| NONE => Error ( ErrorInternalError 1, pos )
+						
 					val venv' = fromTable venv
-					val venv' = List.app () params 
+					val _ = List.app (insertField venv') params
+					
+					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body)
+					
+					val tyres = case tabSearch venv name of
+											 	SOME (FunEntry { formals, result }) => result
+											| _ => Error ( ErrorInternalError 2, pos )
 				in
-				
-				()
+					if weakCompTypes (tyres, tybody) then ()
+					else Error ( ErrorFunDecTypeMismatch name, pos )
 				end
 		in
 			List.app trdec1 lfuncs;
-			List.app trdec2 lfuncs
+			List.app trdec2 lfuncs;
+			{ venv=venv, tenv=tenv }
 		end
 		
+	| transDec ( venv, tenv, TypeDec ltdecs ) = { venv=venv, tenv=tenv } (* Falta completar *)
 		
-	and transTy (tvenv, ty, pos) =
-		case tabSearch tenv ty of
+	and transTy (tenv, NameTy ty) =
+		(case tabSearch tenv ty of
 				SOME t => t
-			| NONE => Error ( ErrorUndefinedType ty, pos )
+			| NONE => NAME ( ty, ref NONE ))
+		
+	| transTy (tenv, RecordTy flist) =
+			let
+				fun aux { name, escape, typ } = ( name, transTy (tenv, NameTy typ))
+			in
+				RECORD (List.map aux flist, ref ()) 
+			end
+	
+	| transTy (tenv, ArrayTy ty) = ARRAY ( transTy (tenv, NameTy ty), ref ())
+	
+	fun checkSemant prog = 
+		let
+			val tenv = tigertab.tabNueva()
+			val venv = tigertab.tabNueva()
+			
+			val tenv = tabRInsert tenv ( "int", INT RW )
+			val tenv = tabRInsert tenv ( "string", STRING )
+		in
+			transExp ( venv, tenv, prog);
+			()
+		end
 		
 end
