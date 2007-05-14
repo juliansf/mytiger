@@ -50,6 +50,7 @@ GRALOBJS= \
 	tigertab.uo \
 	tigerescap.uo \
 	TigerEnv.uo \
+	TigerTrace.uo \
 	TigerSemant.uo \
 	tigerpp.uo \
 	tigermain.uo
@@ -126,6 +127,8 @@ tigerescap.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigerescap.sig $(MISC)/tigerescap.sml
 TigerEnv.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerEnv.sml
+TigerTrace.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTrace.sml
 TigerSemant.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerSemant.sig $(SEMANTIC)/TigerSemant.sml
 tigerpp.uo:
