@@ -32,6 +32,7 @@ LEXER=./Lexer
 PARSER=Parser
 SEMANTIC=Semantic
 MISC=Misc
+BIN=bin
 
 LOADPATH=-I $(LEXER) -I $(PARSER) -I $(SEMANTIC) -I $(MISC)
 
@@ -41,15 +42,23 @@ LOADPATH=-I $(LEXER) -I $(PARSER) -I $(SEMANTIC) -I $(MISC)
 GRALOBJS= \
 	tigernlin.uo \
 	tigerabs.uo \
+	TigerTypes.uo \
+	TigerError.uo \
+	TigerUtils.uo \
 	tigergrm.uo \
 	tigerlex.uo \
+	tigertab.uo \
+	tigerescap.uo \
+	TigerEnv.uo \
+	TigerSemant.uo \
 	tigerpp.uo \
 	tigermain.uo
 
 all: tiger
 
 tiger: $(GRALOBJS) $(OBJSGEN)
-	$(MOSMLL) $(LOADPATH) -o tiger $(EXEFILE) tigermain.uo
+	if ! test -d $(BIN); then mkdir $(BIN); fi; \
+	$(MOSMLL) $(LOADPATH) -o $(BIN)/tiger$(EXEFILE) tigermain.uo
 
 tigergrm.sml tigergrm.sig: $(PARSER)/tigergrm.y 
 	$(MOSMLYACC) $(PARSER)/tigergrm.y
@@ -82,6 +91,10 @@ clean:
 	$(REMOVE) *.ui;\
 	$(REMOVE) *.uo;\
 	
+	$(CD) $(SEMANTIC);\
+	$(REMOVE) *.ui;\
+	$(REMOVE) *.uo;\
+	
 	$(REMOVE) tigermain
 	$(REMOVE) *.ui
 	$(REMOVE) *.uo
@@ -93,7 +106,12 @@ clean:
 
 tigerabs.uo:
 	$(MOSMLC) $(LOADPATH) $(PARSER)/tigerabs.sml
-
+TigerTypes.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTypes.sml
+TigerError.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/TigerError.sml
+TigerUtils.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/TigerUtils.sml	
 tigergrm.uo: 
 	$(MOSMLC) $(LOADPATH) $(PARSER)/tigergrm.sig $(PARSER)/tigergrm.sml
 tigerlex.uo: 
@@ -102,6 +120,14 @@ tigermain.uo:
 	$(MOSMLC) $(LOADPATH) tigermain.sml
 tigernlin.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigernlin.sml
+tigertab.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/tigertab.sig $(MISC)/tigertab.sml
+tigerescap.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/tigerescap.sig $(MISC)/tigerescap.sml
+TigerEnv.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerEnv.sml
+TigerSemant.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerSemant.sig $(SEMANTIC)/TigerSemant.sml
 tigerpp.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigerpp.sml
 	

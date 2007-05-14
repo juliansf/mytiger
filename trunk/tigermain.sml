@@ -2,6 +2,8 @@ open tigerlex
 open tigergrm
 open BasicIO Nonstdio
 
+val pname = ref ""
+
 fun lexstream(is: instream) =
 	Lexing.createLexer(fn b => fn n => buff_input is b 0 n);
 fun errParsing(lbuf) = (print("Error en parsing!("
@@ -19,15 +21,17 @@ fun main(args) =
 		val (inter, l7)		= arg(l6, "-inter") 
 		val entrada =
 			case l7 of
-			[n] => ((open_in n)
+			[n] => ((pname := n; open_in n)
 					handle _ => raise Fail (n^" no existe!"))
 			| [] => std_in
 			| _ => raise Fail "opcio'n dsconocida!"
 		val lexbuf = lexstream entrada
 		val expr = prog Tok lexbuf handle _ => errParsing lexbuf
+		val _ = if escapes then tigerescap.findEscape expr else ()
 		val _ = if arbol then tigerpp.exprAst expr else ()
+		val _ = if ir then TigerSemant.checkSemant expr else ()
 	in	
 		print "yes!!\n"
-	end	handle Fail s => print("Fail: "^s^"\n")
+	end	handle Fail s => print(!pname ^ ":" ^ s ^ "\n")
 
 val _ = main(CommandLine.arguments())
