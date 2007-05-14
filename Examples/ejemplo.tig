@@ -3,7 +3,7 @@ let
     type A = array of int
     type i = int
     var j:A := A[2] of 10 
-    var x:i :=1
+    var x:i := 1
     var y:string := "hola, que tal?"
     function f(a:R, b:i, c:A):int = 1
 in

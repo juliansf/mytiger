@@ -1,0 +1,8 @@
+let
+    type R = {a:int, b:string, c:R}
+    
+    /*Andaría y está mal, para probarlo necesitamos transDec de tipos*/
+    var x := R{ a="hola", b=1, c=nil }
+
+in
+end
