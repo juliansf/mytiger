@@ -104,22 +104,36 @@ struct
 							| LeOp 	=> is()
 						end
 				| trexp ( RecordExp ({ fields, typ }, pos) ) = 
-						let val ty = tabSearch tenv typ
-                            fun checkFieldType (name, typ) = 
-                                case List.find (fn (x,y) => x = name) fields of
-                                    SOME (sym, exp) =>  let
-                                                            val {exp=expexp, ty=tyexp} = trexp exp
-                                                        in
-                                                            if weakCompTypes(tyexp,typ) then {exp=NN, ty=typ}
-                                                            else Error ( ErrorFieldTypeMistmatch, pos)
-                                                        end
-                                    NONE => Error (ErrorUndefinedField, pos)
+						let
+							val (rty, realfields) = case tabSearch tenv typ of
+								SOME (R as RECORD(fl,_)) => (R, fl)
+								| SOME _ => Error (ErrorTypeIsNotRecord typ, pos)
+								| _ => Error (ErrorUndefinedType typ, pos)
+							val errorList = ref []
+							val expList = ref []
+							fun comp x (y,z) = x = y
+							fun checkField defl (name, ty) =
+								case List.find (comp name) (!defl) of
+									SOME (_, e) => let
+															val {exp=expexp, ty=tyexp} = trexp e 
+														in
+															defl := listRemoveItem (comp name) (!defl);
+															if weakCompTypes (tyexp, ty) then
+																expList := (name, expexp) :: (!expList)
+															else
+																errorList := !errorList @ [TypeMismatch name]
+														end
+									| NONE => errorList := !errorList @ [MissingField name]
+							fun checkError (name, _) =
+								case List.find (comp name) realfields of
+									SOME _ => DuplicatedField name
+									| NONE => FieldNotMember name
+							val defl = ref fields;
 						in
-							case ty of
-								SOME ( RECORD (fl, _) ) => 
-                                    List.map checkFieldType fl
-                                    (* Falta ver que tiene que devolver *)       
-							|	_ => Error ( ErrorUndefindedType typ, pos)
+							List.app (checkField defl) realfields;
+							case !errorList @ List.map checkError (!defl) of
+								[] => {exp=NN, ty=rty}
+								| l => Error (ErrorRecordFields l, pos)
 						end
 
 				| trexp ( SeqExp ([], pos) ) = { exp=NN, ty=UNIT }
@@ -328,6 +342,7 @@ struct
 			
 			val tenv = tabRInsert tenv ( "int", INT RW )
 			val tenv = tabRInsert tenv ( "string", STRING )
+			val tenv = tabRInsert tenv ("r", RECORD ( [("a", INT RW), ("b", STRING), ("c", INT RW)],ref ()))
 		in
 			transExp ( venv, tenv, prog);
 			()
