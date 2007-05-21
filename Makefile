@@ -1,6 +1,3 @@
-# User Preferences
-#WORKINGDIR=/Users/Julian/Lcc/5/Compiladores/Compiler/tiger
-
 # Unix makefile for tigermain
 
 HOME=/usr
@@ -41,7 +38,9 @@ LOADPATH=-I $(LEXER) -I $(PARSER) -I $(SEMANTIC) -I $(MISC)
 
 GRALOBJS= \
 	tigernlin.uo \
+	TigerProgName.uo \
 	tigerabs.uo \
+	tigerpp.uo \
 	TigerTypes.uo \
 	TigerError.uo \
 	TigerUtils.uo \
@@ -52,7 +51,6 @@ GRALOBJS= \
 	TigerEnv.uo \
 	TigerTrace.uo \
 	TigerSemant.uo \
-	tigerpp.uo \
 	tigermain.uo
 
 all: tiger
@@ -105,6 +103,10 @@ clean:
 .sig.ui:
 	$(MOSMLC) $(LOADPATH) $<
 
+tigernlin.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/tigernlin.sml
+TigerProgName.uo:
+	$(MOSMLC) $(LOSDPATH) $(MISC)/TigerProgName.sml
 tigerabs.uo:
 	$(MOSMLC) $(LOADPATH) $(PARSER)/tigerabs.sml
 TigerTypes.uo:
@@ -119,8 +121,6 @@ tigerlex.uo:
 	$(MOSMLC) $(LOADPATH) $(LEXER)/tigerlex.sml
 tigermain.uo:
 	$(MOSMLC) $(LOADPATH) tigermain.sml
-tigernlin.uo:
-	$(MOSMLC) $(LOADPATH) $(MISC)/tigernlin.sml
 tigertab.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigertab.sig $(MISC)/tigertab.sml
 tigerescap.uo:
