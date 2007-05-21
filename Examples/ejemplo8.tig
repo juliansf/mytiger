@@ -1,0 +1,13 @@
+let
+	type s = {x:c}
+	type r = {x:c, a:a}
+	type b = {w:r}
+	type d = b
+	type c = d
+	type a = array of r
+	type e = array of s
+	type f = s
+	type x = int
+in
+
+end
