@@ -342,18 +342,18 @@ struct
 					SOME _ => Error (ErrorTypeAlreadyDeclared name, pos)
 					| NONE => ()
 					
-			fun aux n name list =
+			fun aux n name (graph, list) =
 				case tabSearch tenv' n of
-					SOME (RECORD _) => list
-					| _ => (n, name) :: list
+					SOME (RECORD _) => (graph, name :: list)
+					| _ => ((n, name) :: graph, listRemoveItem (fn x => x = n) list)
 			
-			fun genFields name ((_, NAME (n, _)), nodes) = aux n name nodes	
+			fun genFields name ((_, NAME (n, _)), gl) = aux n name gl	
 					
-			fun genGraph ((name, ty), graph) =
+			fun genGraph ((name, ty), (graph, list)) =
 				case ty of
-					NAME (n,_) => aux n name graph
-					| ARRAY (NAME (n,_) , _) => aux n name graph
-					| RECORD ( ml, _) => (List.foldl (genFields name) [] ml) @ graph
+					NAME (n,_) => aux n name (graph, list)
+					| ARRAY (NAME (n,_) , _) => aux n name (graph, list)
+					| RECORD ( ml, _) => List.foldl (genFields name) (graph, list) ml
 			
 			fun firstPass (name, tenv) = 
 				let
@@ -391,12 +391,15 @@ struct
 				let
 					fun typeField (name, ty) =
 						case ty of
-							NAME (n, tyr) => tyr := tabSearch tenv' n
+							NAME (n, tyr) => tyr := SOME ( valOf (tabSearch tenv' n) handle _ => valOf (tabSearch tenv n))
 						|	_ => ()
+					
+					fun getType n = valOf (tabSearch tenv' n) handle _ => valOf (tabSearch tenv n) 
+								handle _ => Error ( ErrorInternalError "problemas en Semant.secondPass.getType!", 0)
 				in (
 					case valOf (tabSearch tenv' name) of
-						NAME (n,_) => ( tabRInsert tenv' (name, valOf (tabSearch tenv' n)); tenv )
-					| ARRAY (NAME (n,_), uniq) => ( tabRInsert tenv' (name, ARRAY (valOf (tabSearch tenv' n), uniq)); tenv )
+						NAME (n,_) => ( tabRInsert tenv' (name, getType n); tenv )
+					| ARRAY (NAME (n,_), uniq) => ( tabRInsert tenv' (name, ARRAY (getType n, uniq)); tenv )
 					| RECORD (ml,_) => ( List.app typeField ml; tenv )
 					| _ => Error ( ErrorInternalError "problemas en Semant.secondPass!", 0)
 					) handle _ => tenv	
@@ -406,48 +409,28 @@ struct
 				case tabSearch tenv' name of
 					SOME ty => ( tabRemove tenv' name; tabRInsert tenv (name, ty); ())
 				| NONE => ()
-			
-			fun fourthPass (name, ty) = 
-				let 
-					fun typeField (_, ty) = 
-						case ty of
-							NAME (n, tyr) => tyr := SOME 
-							(case tabSearch tenv' n of
-									SOME ty => ty
-								| NONE => case tabSearch tenv n of
-										SOME ty => ty
-									| NONE => Error ( ErrorInternalError "problemas con Semant.fourthPass.typeField!", 0 ))
-						|	_ => Error ( ErrorInternalError "problemas con Semant.fourthPass.typeField!", 0 )
-				in (
-					case ty of
-						NAME (n,_) => ( tabRInsert tenv (name, valOf (tabSearch tenv n)); () )
-					| ARRAY (NAME (n,_),uniq) => ( tabRInsert tenv (name, ARRAY (valOf (tabSearch tenv n), uniq)); () )	
-					| r as RECORD (ml,_) => (List.app typeField ml; tabRInsert tenv (name, r); ())
-					) handle _ => Error ( ErrorInternalError "problemas con Semant.fourthPass!", 0 )
-				end
 		in 
 			List.app fillTable ltdecs;
-			List.app (fn (x,y) => print (x ^ " -> " ^ y ^ "\n")) (List.foldl genGraph [] (tabAList tenv'));
 			
-			case cyclesort (List.foldl genGraph [] (tabAList tenv')) of
+			let val (graph, list) = List.foldl genGraph ([],[]) (tabAList tenv') in
+			List.app (fn (x,y) => print (x ^ " -> " ^ y ^ "\n")) (graph);
+			case cyclesort (graph) of
 				(torder, []) => (
 					List.app (fn x => print (x ^ " <---\n")) torder; 
 					List.foldl firstPass tenv torder;
 					List.app (fn (x,y) => print (x ^ " -> " ^ showtype y ^ "\n")) (tabAList tenv');
-					List.foldl secondPass tenv torder;
+					List.foldl secondPass tenv (torder @ list);
 					List.app (fn (x,y) => print (x ^ " --> " ^ showtype y ^ "\n")) (tabAList tenv'); 
-					List.app thirdPass torder;
-					List.app (fn (x,y) => print (x ^ " ---> " ^ showtype y ^ "\n")) (tabAList tenv');
-					List.app fourthPass (tabAList tenv');
-					List.app (fn (x,y) => print (x ^ " ----> " ^ showtype y ^ "\n")) (tabAList tenv);
-					(*raise Fail ""; *)
+					List.app thirdPass (torder @ list);
+					List.app (fn (x,y) => print (x ^ " ---> " ^ showtype y ^ "\n")) (tabAList tenv);
 					())  
 			| (l1, name::l2) => 
 				let 
 					val (_,pos) = valOf (List.find (fn (x,y) => #name(x) = name) ltdecs) 
 				in 
 					Error (ErrorRecursiveTypeDeclaration, pos) 
-				end;			
+				end
+			end;			
 			(*List.app (fn (x,y) => print (x ^ " : " ^ showtype y ^ "\n")) (tabAList tenv);*)
 			{ venv=venv, tenv=tenv } 
 		end
