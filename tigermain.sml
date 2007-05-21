@@ -1,8 +1,7 @@
 open tigerlex
 open tigergrm
+open TigerProgName
 open BasicIO Nonstdio
-
-val pname = ref ""
 
 fun lexstream(is: instream) =
 	Lexing.createLexer(fn b => fn n => buff_input is b 0 n);
@@ -21,7 +20,7 @@ fun main(args) =
 		val (inter, l7)		= arg(l6, "-inter") 
 		val entrada =
 			case l7 of
-			[n] => ((pname := n; open_in n)
+			[n] => ((progName := n; open_in n)
 					handle _ => raise Fail (n^" no existe!"))
 			| [] => std_in
 			| _ => raise Fail "opcio'n dsconocida!"
@@ -32,6 +31,6 @@ fun main(args) =
 		val _ = if ir then TigerSemant.checkSemant expr else ()
 	in	
 		print "yes!!\n"
-	end	handle Fail s => print(!pname ^ ":" ^ s ^ "\n")
+	end	handle Fail s => print(s)
 
 val _ = main(CommandLine.arguments())

@@ -218,3 +218,51 @@ fun exprAst e =
 	(ppexpr ppstrm e;
 	flush_ppstream ppstrm;
 	TextIO.output(TextIO.stdOut, "\n"))
+	
+fun stringFromExp exp =
+			case exp of
+				VarExp (var, pos) => stringFromVar var
+			| UnitExp pos => ""
+			| NilExp pos => "nil"
+			| IntExp (i, pos) => Int.toString i
+			| StringExp (str, pos) => str
+			| CallExp ({func, args}, pos) => 
+					func ^ "(" ^ List.foldl (fn (e, s) => s ^ stringFromExp e) "" args ^ ", " ^ "\b)"
+			| OpExp ({left, oper, right}, pos) =>
+					"(" ^ stringFromExp left ^ " " ^ stringFromOper oper ^ " " ^ stringFromExp right ^ ")"
+			| RecordExp ({fields, typ}, pos) =>
+					typ ^ "{" ^ List.foldl (fn ((f,e), s) => s ^ f ^ "=" ^ stringFromExp e ^ ", ") "" fields ^ "\b}"
+			| SeqExp (expl, pos) => "(" ^ List.foldl (fn (e,s) => s ^ stringFromExp e ^ "; ") "" expl ^ "\b)"
+			| AssignExp ({var, exp}, pos) =>
+					stringFromVar var ^ " := " ^ stringFromExp exp
+			| IfExp ({test: exp, then': exp, else': exp option}, pos) =>
+					"if (" ^ stringFromExp test ^ ") then " ^ stringFromExp then' ^ 
+					( case else' of SOME e => " else " ^ stringFromExp e | NONE => "" )
+			| WhileExp ({test, body}, pos) =>
+					"while (" ^ stringFromExp test ^ ") do " ^ stringFromExp body
+			| ForExp ({var, escape, lo, hi, body}, pos) =>
+				  "for (" ^ var ^ ":= " ^ stringFromExp lo ^ " to " ^ stringFromExp hi ^ " do " ^ stringFromExp body
+			| LetExp ({decs, body}, pos) =>
+					"let ...decs... in " ^ stringFromExp body ^ " end"
+			| BreakExp pos => "break"
+			| ArrayExp ({typ, size, init}, pos) =>
+					typ ^ "[" ^ stringFromExp size ^ "] of " ^ stringFromExp init
+			
+		and stringFromVar var =
+			case var of
+				tigerabs.SimpleVar x => x
+			|	tigerabs.FieldVar (v,x) => stringFromVar v ^ "." ^ x
+			| tigerabs.SubscriptVar (v,e) => stringFromVar v ^ "[" ^ stringFromExp e ^ "]"
+		
+		and stringFromOper oper = 
+			case oper of
+				tigerabs.PlusOp => "+"
+			|	tigerabs.MinusOp => "-"
+			|	tigerabs.TimesOp => "*"
+			|	tigerabs.DivideOp => "/"
+			|	tigerabs.EqOp => "="
+			|	tigerabs.NeqOp => "<>"
+			|	tigerabs.LtOp => "<"
+			|	tigerabs.LeOp => "<="
+			|	tigerabs.GtOp => ">"
+			|	tigerabs.GeOp => ">="
