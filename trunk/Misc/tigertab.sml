@@ -18,6 +18,7 @@ fun tabEsta(s, t) =
 	SOME _ => true
 	| NONE => false
 fun tabInserta(s, e, t) = (peekInsert t (s, e); copy t)
+fun tabInsert t (s, e) = (peekInsert t (s, e))
 fun tabRInserta(s, e, t) = (insert t (s, e); copy t)
 fun tabRInsert t (s,e) = tabRInserta(s, e, t)
 fun tabBusca(s, t) = peek t s
@@ -26,6 +27,7 @@ fun tabSaca(s, t) =
 	case tabBusca(s, t) of
 	SOME t => t
 	| NONE => raise noExiste
+fun tabRemove t key = remove t key
 fun tabAplica(f, t) = map(fn(_, e) => f e) t
 fun tabAAplica(f, g, t) = 
 	let	val l' = listItems t
