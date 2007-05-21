@@ -1,0 +1,28 @@
+/* Ejemplo con tipos */
+let
+	type d = { a:a, b:d}
+	type a = int
+	type b = string
+	type c = array of int
+	type r = { c:r, x:d, a:int}
+	type list = array of d
+	var x:a := 1
+	var w := r{c=r{c=nil, x=d{a=1, b=nil}, a=3}, x=nil, a=1}
+	var y:r := nil
+	var l := list[10] of d{a=1, b=nil}
+	
+	type d = a
+	type a = string
+	type vec = array of int
+	type matrix = array of vec
+	var z:a := "hola"
+	var m := matrix[10] of (vec[10] of 0)
+in
+	 (l[(1+3)*3-9] := nil;
+	 z := "hola";
+	 for i:=0 to 10 do
+	 	(for j := 0 to 10 do
+	 		m[i][j] := i*j);
+	 w.x.b := d{a=2, b=nil}
+	 )
+end

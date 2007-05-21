@@ -1,0 +1,10 @@
+/* Records */
+let
+	type r = { a:int, b:r, c:t }
+	type t = { x:r, y:t }
+	
+	var v:r := nil
+	var w:t := t{ x=v, y=nil }
+in
+	v.b.c.x := nil
+end
