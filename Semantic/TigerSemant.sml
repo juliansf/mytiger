@@ -78,8 +78,9 @@ struct
 								| ( STRING, STRING ) => { exp=NN, ty=INT RO }
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 								
-							fun isar () = (* Int, String, Array, Record *)
-								case ( tyleft, tyright ) of
+							fun isar () = isar' (tyleft, tyright) (* Int, String, Array, Record *)
+							and isar' (a, b) =
+								case ( a, b ) of
 									( INT _, INT _) => { exp=NN, ty=INT RO }
 								| ( STRING, STRING ) => { exp=NN, ty=INT RO }
 								| ( RECORD (_,uniq1), RECORD (_,uniq2) ) =>
@@ -90,6 +91,16 @@ struct
 								| ( ARRAY (_,uniq1), ARRAY (_,uniq2) ) => 
 										if uniq1 = uniq2 then { exp=NN, ty=INT RO }
 										else Error ( ErrorInvalidArgsTypesForOperator oper, pos )
+								| (NAME (n,tyr), b) => 
+										(case !tyr of
+											SOME (r as RECORD _) => isar' (r, b)
+										| SOME (a as ARRAY _) => isar' (a, b)
+										| _ => Error (ErrorInternalError "comparando tipo NAME que tiene (ref NONE)!", pos))
+								| (a, NAME (n,tyr)) => 
+										(case !tyr of
+											SOME (r as RECORD _) => isar' (a, r)
+										| SOME (b as ARRAY _) => isar' (a, b)
+										| _ => Error (ErrorInternalError "comparando tipo NAME que tiene (ref NONE)!", pos))
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 						in
 							case oper of
@@ -288,6 +299,8 @@ struct
 	
 	| transDec ( venv, tenv, FunctionDec lfuncs ) =
 		let 
+			val batchFunEnv = tabNueva();
+			
 			fun trdec1 ({name, params, result, body}, pos) =
 				let
 					fun chkType { name, escape, typ } =
@@ -303,25 +316,34 @@ struct
 							|	NONE => Error ( ErrorUndefinedType res, pos ) )
 					| NONE => UNIT
 				in
-					tabRInsert venv ( name, FunEntry { formals=formals, result=result } );
-					()
+					case tabInsert batchFunEnv (name, 0) of
+						SOME _ => Error ( ErrorFunAlreadyDeclared name, pos )
+					| NONE => (tabRInsert venv ( name, FunEntry { formals=formals, result=result } ); ())
 				end
 				
 			fun trdec2 ({name, params, result, body}, pos)=
 				let
-					fun insertField env { name, escape, typ } =
+					val	fenv = tabNueva ()
+					
+					fun checkParam func { name, escape, typ } =
+						case tabInsert fenv (name, 0) of
+							SOME _ => Error ( ErrorDupFieldInFunDec (func, name), pos)
+						| NONE => ()
+					
+					fun insertField env { name=fname, escape, typ } =
 						case tabSearch tenv typ of
-							SOME ty => ( tabRInsert env (name, VarEntry{ ty=ty }); () )
-						| NONE => Error ( ErrorInternalError "1", pos )
+							SOME ty => ( tabRInsert env (fname, VarEntry{ ty=ty }); () )
+						| NONE => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2.insertField!", pos )
 						
 					val venv' = fromTable venv
+					val _ = List.app (checkParam name) params
 					val _ = List.app (insertField venv') params
 					
 					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body)
 					
 					val tyres = case tabSearch venv name of
 											 	SOME (FunEntry { formals, result }) => result
-											| _ => Error ( ErrorInternalError "2", pos )
+											| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
 				in
 					(if weakCompTypes (tyres, tybody) then ()
 					else Error ( ErrorFunDecTypeMismatch name, pos ))
@@ -337,10 +359,15 @@ struct
 		let 
 			val tenv' = tabNueva()
 			
-			fun fillTable ({name, ty}, pos) = 
-				case tabInsert tenv' (name, transTy(tenv, ty)) of
-					SOME _ => Error (ErrorTypeAlreadyDeclared name, pos)
-					| NONE => ()
+			fun fillTable ({name, ty}, pos) =
+				let 
+					val dec = (name, transTy (tenv, ty)) 
+						handle DupFieldInRecordDec field => Error ( ErrorDupFieldInRecordDec field, pos)
+				in 
+					case tabInsert tenv' dec of
+						SOME _ => Error (ErrorTypeAlreadyDeclared name, pos)
+						| NONE => (tabRInsert tenv dec; ())
+				end
 					
 			fun aux n name (graph, list) =
 				case tabSearch tenv' n of
@@ -348,90 +375,78 @@ struct
 					| _ => ((n, name) :: graph, listRemoveItem (fn x => x = n) list)
 			
 			fun genFields name ((_, NAME (n, _)), gl) = aux n name gl	
+				| genFields _ _ = Error (ErrorInternalError "problemas con Semant.transDec.genFields!", 0)
 					
 			fun genGraph ((name, ty), (graph, list)) =
 				case ty of
 					NAME (n,_) => aux n name (graph, list)
-					| ARRAY (NAME (n,_) , _) => aux n name (graph, list)
-					| RECORD ( ml, _) => List.foldl (genFields name) (graph, list) ml
+				| ARRAY (NAME (n,_) , _) => aux n name (graph, list)
+				| RECORD ( ml, _) => List.foldl (genFields name) (graph, list) ml
+				| _ => Error (ErrorInternalError "problemas con Semant.transDec.genGraph!", 0)
 			
-			fun firstPass (name, tenv) = 
+			fun firstPass (name, nextPassList) =
 				let
-					val pos = #2(valOf (List.find (fn (x,y) => #name(x) = name) ltdecs)) 
-										handle _ => 0
-					
 					fun typeField (f as (name, NAME (n,_)), (ml,count)) =
-						case tabSearch tenv' n of
-							SOME _ => (f::ml, count+1)
-						| NONE => case tabSearch tenv n of
-								SOME ty => ((name, ty)::ml, count)
-							| NONE => Error ( ErrorUndefinedType n, pos )	(* FALTA el pos *)
-				in (
-					case valOf (tabSearch tenv' name) of
+						(case tabSearch tenv n of
+							SOME (ARRAY (NAME _, _)) => (f::ml, count+1)
+						| SOME (RECORD _) => (f::ml, count+1)
+						| SOME ty => ((name, ty)::ml, count)
+						| NONE => raise UndefinedType n)
+					| typeField _ = Error (ErrorInternalError "problemas con Semant.transDec.firstPass.typeField!", 0)
+				in 
+					case valOf (tabSearch tenv name) of
 						NAME (n,_) => (
-							case tabSearch tenv' n of
-								SOME _ => tenv
-							| NONE => case tabSearch tenv n of
-									SOME ty => ( tabRemove tenv' name; tabRInsert tenv (name, ty); tenv )
-								| NONE => Error ( ErrorUndefinedType n, pos ))
+							case tabSearch tenv n of
+								SOME (RECORD _) => nextPassList @ [name]
+							| SOME (ty as NAME _) => (tabRInsert tenv (name, ty); nextPassList @ [name])
+							| SOME ty => (tabRInsert tenv (name, ty); nextPassList)
+							| NONE => raise UndefinedType n)
 					| ARRAY (NAME (n,_),uniq) => (
-							case tabSearch tenv' n of
-								SOME _ => tenv
-							| NONE => case tabSearch tenv n of
-									SOME ty => ( tabRemove tenv' name; tabRInsert tenv (name, ARRAY (ty, uniq)); tenv )
-								| NONE => Error ( ErrorUndefinedType n, pos ))	(* FALTA el pos *)
+							case tabSearch tenv n of
+								SOME (RECORD _) => name :: nextPassList
+							| SOME ty => (tabRInsert tenv (name, ARRAY (ty,uniq)); nextPassList)
+							| NONE => raise UndefinedType n)
 					| RECORD (ml,uniq) => (
-						case List.foldr typeField ([], 0) ml of 
-							(ml,0) => ( tabRemove tenv' name; tabRInsert tenv (name, RECORD (ml, uniq)); tenv )
-						| (ml,_) => tabRInsert tenv' (name, RECORD(ml, uniq)); tenv)
-					) handle Fail errmsg => raise Fail errmsg | _ => tenv
-				end
+							case List.foldr typeField ([], 0) ml of 
+								(ml,count) => 
+									(tabRInsert tenv (name, RECORD (ml, uniq)); 
+									if 0 = count then nextPassList else nextPassList @ [name]))
+					| ty => (tabRInsert tenv (name, ty); nextPassList)
+				end 
+				handle e =>
+					let
+						val n = case e of UndefinedType n => n | _ => name
+						val pos = #2(valOf (List.find (fn (x,y) => #name(x) = name) ltdecs)) handle _ => 0
+					in 
+						Error ( ErrorUndefinedType n, pos ) 
+					end
 				
 			fun secondPass (name, tenv) = 
 				let
+					fun getType n = valOf (tabSearch tenv n)
+								handle _ => Error ( ErrorInternalError "problemas en Semant.transDec.secondPass.getType!", 0)
+								
 					fun typeField (name, ty) =
 						case ty of
-							NAME (n, tyr) => tyr := SOME ( valOf (tabSearch tenv' n) handle _ => valOf (tabSearch tenv n))
+							NAME (n, tyr) => tyr := SOME (getType n)
 						|	_ => ()
-					
-					fun getType n = valOf (tabSearch tenv' n) handle _ => valOf (tabSearch tenv n) 
-								handle _ => Error ( ErrorInternalError "problemas en Semant.secondPass.getType!", 0)
 				in (
-					case valOf (tabSearch tenv' name) of
-						NAME (n,_) => ( tabRInsert tenv' (name, getType n); tenv )
-					| ARRAY (NAME (n,_), uniq) => ( tabRInsert tenv' (name, ARRAY (getType n, uniq)); tenv )
+					case valOf (tabSearch tenv name) of
+						NAME (n,_) => ( tabRInsert tenv (name, getType n); tenv )
+					| ARRAY (NAME (n,_), uniq) => ( tabRInsert tenv (name, ARRAY (getType n, uniq)); tenv )
 					| RECORD (ml,_) => ( List.app typeField ml; tenv )
-					| _ => Error ( ErrorInternalError "problemas en Semant.secondPass!", 0)
-					) handle _ => tenv	
+					| _ => Error ( ErrorInternalError "problemas en Semant.transDec.secondPass!", 0)) 
+					handle _ => tenv	
 				end	
-			
-			fun thirdPass name =
-				case tabSearch tenv' name of
-					SOME ty => ( tabRemove tenv' name; tabRInsert tenv (name, ty); ())
-				| NONE => ()
 		in 
 			List.app fillTable ltdecs;
-			
 			let val (graph, list) = List.foldl genGraph ([],[]) (tabAList tenv') in
-			List.app (fn (x,y) => print (x ^ " -> " ^ y ^ "\n")) (graph);
 			case cyclesort (graph) of
-				(torder, []) => (
-					List.app (fn x => print (x ^ " <---\n")) torder; 
-					List.foldl firstPass tenv torder;
-					List.app (fn (x,y) => print (x ^ " -> " ^ showtype y ^ "\n")) (tabAList tenv');
-					List.foldl secondPass tenv (torder @ list);
-					List.app (fn (x,y) => print (x ^ " --> " ^ showtype y ^ "\n")) (tabAList tenv'); 
-					List.app thirdPass (torder @ list);
-					List.app (fn (x,y) => print (x ^ " ---> " ^ showtype y ^ "\n")) (tabAList tenv);
-					())  
+				(torder, []) => List.foldl secondPass tenv (List.foldl firstPass [] torder @ list)
 			| (l1, name::l2) => 
-				let 
-					val (_,pos) = valOf (List.find (fn (x,y) => #name(x) = name) ltdecs) 
-				in 
-					Error (ErrorRecursiveTypeDeclaration, pos) 
-				end
-			end;			
-			(*List.app (fn (x,y) => print (x ^ " : " ^ showtype y ^ "\n")) (tabAList tenv);*)
+				let val (_,pos) = valOf (List.find (fn (x,y) => #name(x) = name) ltdecs) 
+				in Error (ErrorRecursiveTypeDeclaration, pos) end
+			end;
 			{ venv=venv, tenv=tenv } 
 		end
 		
@@ -440,7 +455,13 @@ struct
 		
 	| transTy (tenv, RecordTy flist) =
 			let
-				fun aux { name, escape, typ } = ( name, transTy (tenv, NameTy typ))
+				val menv = tabNueva()
+				fun aux { name, escape, typ } = 
+					let val field = (name, transTy (tenv, NameTy typ)) in
+					case tabInsert menv field of
+						SOME _ => raise DupFieldInRecordDec name
+					| NONE => field
+					end
 			in
 				RECORD (List.map aux flist, ref ()) 
 			end
