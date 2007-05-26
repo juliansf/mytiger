@@ -299,14 +299,20 @@ struct
 	
 	| transDec ( venv, tenv, FunctionDec lfuncs ) =
 		let 
-			val batchFunEnv = tabNueva();
+
+        	val batchFunEnv = tabNueva();
 			
-			fun trdec1 ({name, params, result, body}, pos) =
+            fun trdec1 ({name, params, result, body}, pos) =
 				let
-					fun chkType { name, escape, typ } =
+                    val	fenv = tabNueva ()
+
+					fun chkType { name = argname, escape, typ } =
 						case tabSearch tenv typ of
-							SOME t => t
+						SOME t => (case tabInsert fenv (argname, 0) of
+            					    SOME _ => Error ( ErrorDupFieldInFunDec (name, argname), pos)
+                				    | NONE => t)
 						| NONE => Error ( ErrorUndefinedType typ, pos )
+
 					val formals = List.map chkType params
 					
 					val result = case result of
@@ -322,28 +328,20 @@ struct
 				end
 				
 			fun trdec2 ({name, params, result, body}, pos)=
-				let
-					val	fenv = tabNueva ()
-					
-					fun checkParam func { name, escape, typ } =
-						case tabInsert fenv (name, 0) of
-							SOME _ => Error ( ErrorDupFieldInFunDec (func, name), pos)
-						| NONE => ()
-					
+				let				
 					fun insertField env { name=fname, escape, typ } =
 						case tabSearch tenv typ of
-							SOME ty => ( tabRInsert env (fname, VarEntry{ ty=ty }); () )
-						| NONE => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2.insertField!", pos )
+						    SOME ty => ( tabRInsert env (fname, VarEntry{ ty=ty }); () )
+						    | NONE => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2.insertField!", pos )
 						
 					val venv' = fromTable venv
-					val _ = List.app (checkParam name) params
 					val _ = List.app (insertField venv') params
 					
 					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body)
 					
 					val tyres = case tabSearch venv name of
-											 	SOME (FunEntry { formals, result }) => result
-											| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
+					    SOME (FunEntry { formals, result }) => result
+						| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
 				in
 					(if weakCompTypes (tyres, tybody) then ()
 					else Error ( ErrorFunDecTypeMismatch name, pos ))
@@ -403,7 +401,7 @@ struct
 							| NONE => raise UndefinedType n)
 					| ARRAY (NAME (n,_),uniq) => (
 							case tabSearch tenv n of
-								SOME (RECORD _) => name :: nextPassList
+								SOME (RECORD _) => nextPassList @ [name]
 							| SOME ty => (tabRInsert tenv (name, ARRAY (ty,uniq)); nextPassList)
 							| NONE => raise UndefinedType n)
 					| RECORD (ml,uniq) => (
