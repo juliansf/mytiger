@@ -388,6 +388,7 @@ struct
 						(case tabSearch tenv n of
 							SOME (ARRAY (NAME _, _)) => (f::ml, count+1)
 						| SOME (RECORD _) => (f::ml, count+1)
+                        | SOME (NAME _) => (f::ml, count+1)
 						| SOME ty => ((name, ty)::ml, count)
 						| NONE => raise UndefinedType n)
 					| typeField _ = Error (ErrorInternalError "problemas con Semant.transDec.firstPass.typeField!", 0)
@@ -395,20 +396,20 @@ struct
 					case valOf (tabSearch tenv name) of
 						NAME (n,_) => (
 							case tabSearch tenv n of
-								SOME (RECORD _) => nextPassList @ [name]
-							| SOME (ty as NAME _) => (tabRInsert tenv (name, ty); nextPassList @ [name])
+								SOME (RECORD _) => name :: nextPassList
+							| SOME (ty as NAME _) => (tabRInsert tenv (name, ty); name :: nextPassList)
 							| SOME ty => (tabRInsert tenv (name, ty); nextPassList)
 							| NONE => raise UndefinedType n)
 					| ARRAY (NAME (n,_),uniq) => (
 							case tabSearch tenv n of
-								SOME (RECORD _) => nextPassList @ [name]
+								SOME (RECORD _) => name :: nextPassList
 							| SOME ty => (tabRInsert tenv (name, ARRAY (ty,uniq)); nextPassList)
 							| NONE => raise UndefinedType n)
 					| RECORD (ml,uniq) => (
 							case List.foldr typeField ([], 0) ml of 
 								(ml,count) => 
 									(tabRInsert tenv (name, RECORD (ml, uniq)); 
-									if 0 = count then nextPassList else nextPassList @ [name]))
+									if 0 = count then nextPassList else name :: nextPassList))
 					| ty => (tabRInsert tenv (name, ty); nextPassList)
 				end 
 				handle e =>
@@ -440,7 +441,7 @@ struct
 			List.app fillTable ltdecs;
 			let val (graph, list) = List.foldl genGraph ([],[]) (tabAList tenv') in
 			case cyclesort (graph) of
-				(torder, []) => List.foldl secondPass tenv (List.foldl firstPass [] torder @ list)
+				(torder, []) => List.foldr secondPass tenv (List.foldl firstPass [] torder @ list)
 			| (l1, name::l2) => 
 				let val (_,pos) = valOf (List.find (fn (x,y) => #name(x) = name) ltdecs) 
 				in Error (ErrorRecursiveTypeDeclaration, pos) end
