@@ -3,7 +3,7 @@ structure tigerpp :> tigerpp =
 struct
 *)
 
-open tigerabs
+open TigerAbs
 open PP
 
 fun ppexpr pps e0 = 
@@ -109,11 +109,11 @@ fun ppexpr pps e0 =
 			add_string pps "oper=";
 			add_string pps
 				(case oper of
-				PlusOp => "PlusOp" | MinusOp => "MinusOp"
-				| TimesOp => "TimesOp" | DivideOp => "DivideOp"
-				| EqOp => "EqOp" | NeqOp => "NeqOp"
-				| LtOp => "LtOp" | LeOp => "LeOp"
-				| GtOp => "GtOp" | GeOp => "GeOp");
+				Plus => "Plus" | Minus => "Minus"
+				| Times => "Times" | Div => "Div"
+				| Eq => "Eq" | Neq => "Neq"
+				| Lt => "Lt" | Leq => "Leq"
+				| Gt => "Gt" | Geq => "Geq");
 			add_string pps ","; add_break pps (0, 1);
 			add_string pps "right="; ppe right; add_string pps "}";
 			end_block pps)
@@ -145,7 +145,7 @@ fun ppexpr pps e0 =
 			ppv var; add_string pps ","; add_break pps (0, 1);
 			add_string pps "exp="; ppe exp; add_string pps "}";
 			end_block pps)
-		| ppe(IfExp({test, then', else'}, _)) =
+		| ppe(IfExp({test, then', else', oper}, _)) =
 			(begin_block pps INCONSISTENT 0;
 			add_string pps "IfExp{"; add_break pps (0, 0); 
 			add_string pps "test=";
@@ -154,6 +154,9 @@ fun ppexpr pps e0 =
 			ppe then'; add_string pps ","; add_break pps (0, 0);
 			add_string pps "else'=";
 			case else' of SOME e => ppe e | NONE => add_string pps "NONE";
+			add_break pps (0, 0);
+			add_string pps ", oper=";
+			add_string pps (case oper of And => "AND" | Or => "OR" | If => "IF");
 			add_break pps (0, 0);
 			add_string pps "}";
 			end_block pps)
@@ -235,7 +238,7 @@ fun stringFromExp exp =
 			| SeqExp (expl, pos) => "(" ^ List.foldl (fn (e,s) => s ^ stringFromExp e ^ "; ") "" expl ^ "\b)"
 			| AssignExp ({var, exp}, pos) =>
 					stringFromVar var ^ " := " ^ stringFromExp exp
-			| IfExp ({test: exp, then': exp, else': exp option}, pos) =>
+			| IfExp ({test: exp, then': exp, else': exp option, oper: ifop}, pos) =>
 					"if (" ^ stringFromExp test ^ ") then " ^ stringFromExp then' ^ 
 					( case else' of SOME e => " else " ^ stringFromExp e | NONE => "" )
 			| WhileExp ({test, body}, pos) =>
@@ -250,19 +253,19 @@ fun stringFromExp exp =
 			
 		and stringFromVar var =
 			case var of
-				tigerabs.SimpleVar x => x
-			|	tigerabs.FieldVar (v,x) => stringFromVar v ^ "." ^ x
-			| tigerabs.SubscriptVar (v,e) => stringFromVar v ^ "[" ^ stringFromExp e ^ "]"
+				TigerAbs.SimpleVar x => x
+			|	TigerAbs.FieldVar (v,x) => stringFromVar v ^ "." ^ x
+			| TigerAbs.SubscriptVar (v,e) => stringFromVar v ^ "[" ^ stringFromExp e ^ "]"
 		
 		and stringFromOper oper = 
 			case oper of
-				tigerabs.PlusOp => "+"
-			|	tigerabs.MinusOp => "-"
-			|	tigerabs.TimesOp => "*"
-			|	tigerabs.DivideOp => "/"
-			|	tigerabs.EqOp => "="
-			|	tigerabs.NeqOp => "<>"
-			|	tigerabs.LtOp => "<"
-			|	tigerabs.LeOp => "<="
-			|	tigerabs.GtOp => ">"
-			|	tigerabs.GeOp => ">="
+				TigerAbs.Plus => "+"
+			|	TigerAbs.Minus => "-"
+			|	TigerAbs.Times => "*"
+			|	TigerAbs.Div => "/"
+			|	TigerAbs.Eq => "="
+			|	TigerAbs.Neq => "<>"
+			|	TigerAbs.Lt => "<"
+			|	TigerAbs.Leq => "<="
+			|	TigerAbs.Gt => ">"
+			|	TigerAbs.Geq => ">="

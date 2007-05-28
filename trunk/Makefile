@@ -1,15 +1,15 @@
 # Unix makefile for tigermain
 
-HOME=/usr
-MOSMLHOME=${HOME}/lib/mosml
+HOME=/usr/share
+MOSMLHOME=${HOME}/mosml
 MOSMLTOOLS=camlrunm $(MOSMLHOME)/tools
 MOSMLLEX=mosmllex
 MOSMLYACC=mosmlyac -v
 
 GCC=gcc
 CFLAGS= -g
-MOSMLC=${HOME}/bin/mosmlc -c -liberal
-MOSMLL=${HOME}/bin/mosmlc
+MOSMLC=${MOSMLHOME}/bin/mosmlc -c -liberal
+MOSMLL=${MOSMLHOME}/bin/mosmlc
 
 # Unix
 REMOVE=rm -f
@@ -37,15 +37,15 @@ LOADPATH=-I $(LEXER) -I $(PARSER) -I $(SEMANTIC) -I $(MISC)
 .SUFFIXES : .sig .sml .ui .uo
 
 GRALOBJS= \
-	tigernlin.uo \
+	TigerLineNumber.uo \
 	TigerProgName.uo \
-	tigerabs.uo \
+	TigerAbs.uo \
 	tigerpp.uo \
 	TigerTypes.uo \
 	TigerError.uo \
 	TigerUtils.uo \
-	tigergrm.uo \
-	tigerlex.uo \
+	Parser.uo \
+	Scanner.uo \
 	tigertab.uo \
 	tigerescap.uo \
 	TigerEnv.uo \
@@ -59,15 +59,15 @@ tiger: $(GRALOBJS) $(OBJSGEN)
 	if ! test -d $(BIN); then mkdir $(BIN); fi; \
 	$(MOSMLL) $(LOADPATH) -o $(BIN)/tiger$(EXEFILE) tigermain.uo
 
-tigergrm.sml tigergrm.sig: $(PARSER)/tigergrm.y 
-	$(MOSMLYACC) $(PARSER)/tigergrm.y
+Parser.sml Parser.sig: $(PARSER)/Parser.y 
+	$(MOSMLYACC) $(PARSER)/Parser.y
 
-tigerlex.sml: $(LEXER)/tigerlex.lex
-	$(MOSMLLEX) $(LEXER)/tigerlex.lex
+Scanner.sml: $(LEXER)/Scanner.lex
+	$(MOSMLLEX) $(LEXER)/Scanner.lex
 
-tigerabs.sml: $(PARSER)/tigerabs.sml
+TigerAbs.sml: $(PARSER)/tigerabs.sml
 
-tigernlin.sml: $(MISC)/tigernlin.sml
+TigerLineNumber.sml: $(MISC)/TigerLineNumber.sml
 
 tigerpp.sml: $(MISC)/tigerpp.sml
 
@@ -75,14 +75,14 @@ clean:
 	$(REMOVE) Makefile.bak
 	
 	$(CD) $(PARSER);\
-	$(REMOVE) tigergrm.output;\
-	$(REMOVE) tigergrm.sig;\
-	$(REMOVE) tigergrm.sml;\
+	$(REMOVE) Parser.output;\
+	$(REMOVE) Parser.sig;\
+	$(REMOVE) Parser.sml;\
 	$(REMOVE) *.ui;\
 	$(REMOVE) *.uo;\
 	
 	$(CD) $(LEXER);\
-	$(REMOVE) tigerlex.sml;\
+	$(REMOVE) Scanner.sml;\
 	$(REMOVE) *.ui;\
 	$(REMOVE) *.uo;\
 	
@@ -103,22 +103,22 @@ clean:
 .sig.ui:
 	$(MOSMLC) $(LOADPATH) $<
 
-tigernlin.uo:
-	$(MOSMLC) $(LOADPATH) $(MISC)/tigernlin.sml
+TigerLineNumber.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/TigerLineNumber.sml
 TigerProgName.uo:
 	$(MOSMLC) $(LOSDPATH) $(MISC)/TigerProgName.sml
-tigerabs.uo:
-	$(MOSMLC) $(LOADPATH) $(PARSER)/tigerabs.sml
+TigerAbs.uo:
+	$(MOSMLC) $(LOADPATH) $(PARSER)/TigerAbs.sml
 TigerTypes.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTypes.sml
 TigerError.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/TigerError.sml
 TigerUtils.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/TigerUtils.sml	
-tigergrm.uo: 
-	$(MOSMLC) $(LOADPATH) $(PARSER)/tigergrm.sig $(PARSER)/tigergrm.sml
-tigerlex.uo: 
-	$(MOSMLC) $(LOADPATH) $(LEXER)/tigerlex.sml
+Parser.uo: 
+	$(MOSMLC) $(LOADPATH) $(PARSER)/Parser.sig $(PARSER)/Parser.sml
+Scanner.uo: 
+	$(MOSMLC) $(LOADPATH) $(LEXER)/Scanner.sml
 tigermain.uo:
 	$(MOSMLC) $(LOADPATH) tigermain.sml
 tigertab.uo:
@@ -137,7 +137,7 @@ tigerpp.uo:
 #.sml.uo:
 #	$(MOSMLC) $<
 
-depend: tigernlin.sml tigerabs.sml tigergrm.sml tigerlex.sml tigermain.sml tigerpp.sml
+depend: TigerLineNumber.sml TigerAbs.sml Parser.sml Scanner.sml tigermain.sml tigerpp.sml
 	$(REMOVE) Makefile.bak
 	$(MOVE) Makefile Makefile.bak
 	$(MOSMLTOOLS)/cutdeps < Makefile.bak > Makefile

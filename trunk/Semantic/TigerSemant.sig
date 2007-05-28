@@ -3,9 +3,9 @@ sig
 	type venv
 	type tenv
 	type expty
-	val transVar : venv * tenv * tigerabs.var * tigerabs.pos -> expty
-	val transExp : venv * tenv * tigerabs.exp -> expty
-	val transDec : venv * tenv * tigerabs.dec -> { venv:venv, tenv:tenv }
-	val transTy  : tenv * tigerabs.ty -> TigerTypes.ty
-	val checkSemant : tigerabs.exp -> unit
+	val transVar : venv * tenv * TigerAbs.var * TigerAbs.pos -> expty
+	val transExp : venv * tenv * TigerAbs.exp -> expty
+	val transDec : venv * tenv * TigerAbs.dec -> { venv:venv, tenv:tenv }
+	val transTy  : tenv * TigerAbs.ty -> TigerTypes.ty
+	val checkSemant : TigerAbs.exp -> unit
 end

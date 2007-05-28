@@ -1,7 +1,7 @@
 structure tigerescap :> tigerescap =
 struct
 
-open tigerabs
+open TigerAbs
 open tigertab
 open TigerError
 
@@ -29,9 +29,9 @@ and travExp env d s =
 			(env, d) le; ())
 	| AssignExp({var, exp}, _) =>
 		(travVar env d var; travExp env d exp)
-	| IfExp({test, then', else'=NONE}, _) =>
+	| IfExp({test, then', else'=NONE, oper}, _) =>
 		(travExp env d test; travExp env d then')
-	| IfExp({test, then', else'=SOME e}, _) =>
+	| IfExp({test, then', else'=SOME e, oper}, _) =>
 		(travExp env d test; travExp env d then'; travExp env d e)
 	| WhileExp({test, body}, _) =>
 		(travExp env d test; travExp env d body)
@@ -41,7 +41,7 @@ and travExp env d s =
 			travExp env d  hi;
 			travExp env' d  body
 		end
-	| LetExp({decs, body}, _) =>
+	| LetExp({decs, body}, _) => 
 		travExp (travDecs env d decs) d body
 	| ArrayExp({typ, size, init}, _) => travExp env d init
 	| _ => ()

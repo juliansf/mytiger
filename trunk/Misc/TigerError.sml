@@ -5,6 +5,9 @@ struct
 	exception InternalError of string
 	exception UndefinedType of string
 	exception DupFieldInRecordDec of string
+	exception ErrorFileNotFound of string
+	exception ErrorEmptyFile of string
+	exception ErrorNoInputFiles of string
 	
 	datatype errorfield =
 		TypeMismatch of string
@@ -14,15 +17,15 @@ struct
 	
 	datatype error =
 		ErrorInternalError of string
-	| ErrorInvalidArgsTypesForOperator of tigerabs.oper
+	| ErrorInvalidArgsTypesForOperator of TigerAbs.oper
 	| ErrorUndefinedFunction of string
 	| ErrorWrongFunArgType of string * int
 	| ErrorFewArgsForFunction of string
 	| ErrorManyArgsForFunction of string
-	| ErrorReadOnlyVariable of tigerabs.var
-	| ErrorAssignTypeMismatch of tigerabs.var
-	| ErrorIfTest
-	| ErrorIfTypeMismatch
+	| ErrorReadOnlyVariable of TigerAbs.var
+	| ErrorAssignTypeMismatch of TigerAbs.var
+	| ErrorIfTest of TigerAbs.ifop
+	| ErrorIfTypeMismatch of TigerAbs.ifop
 	| ErrorWhileTest
 	| ErrorWhileBody
 	| ErrorForLowExp
@@ -33,12 +36,12 @@ struct
 	| ErrorArrayTypeMismatch of string
 	| ErrorArraySizeTypeIsNotInt of TigerTypes.ty
 	| ErrorUndefinedVariable of string
-	| ErrorRecordFieldUndefined of tigerabs.var * string
+	| ErrorRecordFieldUndefined of TigerAbs.var * string
 	| ErrorDupFieldInRecordDec of string
 	| ErrorRecordFields of errorfield list
-	| ErrorVariableIsNotRecord of tigerabs.var
+	| ErrorVariableIsNotRecord of TigerAbs.var
 	| ErrorArrayIndexIsNotInt
-	| ErrorVariableIsNotArray of tigerabs.var
+	| ErrorVariableIsNotArray of TigerAbs.var
 	| ErrorVarDecInitIsUnit of string
 	| ErrorVarDecTypeMismatch of string
 	| ErrorFunDecTypeMismatch of string
@@ -47,6 +50,17 @@ struct
 	| ErrorEscapeVariableNotExists of string
 	| ErrorTypeAlreadyDeclared of string
 	| ErrorRecursiveTypeDeclaration
+	
+	(* Errores de Parsing *)
+	| ErrorParsingError of string
+	| ErrorUnterminatedComment
+	| ErrorEOFUnterminatedString
+	| ErrorNLUnterminatedString
+	| ErrorIllegalCharInString of string
+	| ErrorInvalidCharBetweenBars of string
+	| ErrorInvalidTypeName
+	
+	fun ErrorUnrecognizedOption name opt = print (name ^ ": opcion no reconocida '" ^ opt ^ "'\n")
 	
 	fun fieldError errty =
 		case errty of
@@ -69,8 +83,16 @@ struct
 		| ErrorManyArgsForFunction func => "demasiados argumentos pasados a la funcion '" ^ func ^ "'."
 		| ErrorReadOnlyVariable var => "no se puede escribir una variable de solo lectura."
 		| ErrorAssignTypeMismatch var => "asignacion con tipos incompatibles."
-		| ErrorIfTest => "la condicion del 'if' debe ser un entero."
-		| ErrorIfTypeMismatch => "tipos incompatibles en el 'if'."
+		| ErrorIfTest oper => 
+				(case oper of 
+					TigerAbs.If => "la condicion del 'if' debe ser un entero."
+				|	TigerAbs.And => "el primer operando de '&' no es un entero."
+				| TigerAbs.Or => "el primer operando de '|' no es un entero.")
+		| ErrorIfTypeMismatch oper => 
+				(case oper of
+					TigerAbs.If => "tipos incompatibles en el 'if'."
+				| TigerAbs.And => "el segundo operando de '&' no es un entero."
+				| TigerAbs.Or => "el segundo operando de '|' no es un entero.")
 		| ErrorWhileTest => "la condicion del 'while' debe ser un entero."
 		| ErrorWhileBody => "el cuerpo del 'while' debe ser una sentencia."
 		| ErrorForLowExp => "el inicializador del 'for' debe ser un entero."
@@ -98,7 +120,25 @@ struct
 				"el parametro '" ^ param ^ "' esta repetido en la declaracion de la funcion '" ^ func ^ "'."
 		| ErrorEscapeVariableNotExists var => "escapes: variable inexistente: '" ^ var ^ "'."
 		| ErrorTypeAlreadyDeclared typ => "el tipo '" ^ typ ^ "' ya esta declarado en este batch."
-		| ErrorRecursiveTypeDeclaration => "declaracion recursiva de tipos.")
+		| ErrorRecursiveTypeDeclaration => "declaracion recursiva de tipos."
+		
+		(* Errores de Parsing *)
+		| ErrorParsingError str => "error de parseo causado por '" ^ str ^ "'."
+		| ErrorUnterminatedComment => "fin de archivo alcanzado con un comentario sin cerrar."
+		| ErrorEOFUnterminatedString => "fin de archivo alcanzado con una cadena no cerrada."
+		| ErrorNLUnterminatedString => "fin de linea encontrado antes de cerrar la cadena."
+		| ErrorIllegalCharInString str => "cadena malformada con caracter invalido (" ^ str ^ ")."
+		| ErrorInvalidCharBetweenBars str => "caracter invalido entre las barras (" ^ str ^ ")."
+		| ErrorInvalidTypeName => "nombre de tipo invalido en la inicializacion del arreglo.")
+	
 		
 	fun Error ( err, pos ) = raise Fail (ErrorString err pos ^ "\n")
+	
+	fun ShowErrors e =
+		case e of
+			Fail s => print(s)
+		|	ErrorFileNotFound name => print ( name ^ ": archivo inexistente.\n" )
+		| ErrorEmptyFile name => print ( name ^ ": archivo vacio.\n" )
+		| ErrorNoInputFiles name => print ( name ^ ": no hay archivos fuentes que compilar.\n" )
+		| e => raise e
 end
