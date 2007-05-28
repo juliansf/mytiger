@@ -1,36 +1,73 @@
-open tigerlex
-open tigergrm
+open Scanner
+open Parser
 open TigerProgName
+open TigerLineNumber
 open BasicIO Nonstdio
 
 fun lexstream(is: instream) =
 	Lexing.createLexer(fn b => fn n => buff_input is b 0 n);
-fun errParsing(lbuf) = (print("Error en parsing!("
-	^(makestring(!num_linea))^
-	")["^(Lexing.getLexeme lbuf)^"]\n"); raise Fail "fin!")
-fun main(args) =
-	let	fun arg(l, s) =
-			(List.exists (fn x => x=s) l, List.filter (fn x => x<>s) l)
-		val (arbol, l1)		= arg(args, "-arbol")
-		val (escapes, l2)	= arg(l1, "-escapes") 
-		val (ir, l3)		= arg(l2, "-ir") 
-		val (canon, l4)		= arg(l3, "-canon") 
-		val (code, l5)		= arg(l4, "-code") 
-		val (flow, l6)		= arg(l5, "-flow") 
-		val (inter, l7)		= arg(l6, "-inter") 
-		val entrada =
-			case l7 of
-			[n] => ((progName := n; open_in n)
-					handle _ => raise Fail (n^" no existe!"))
-			| [] => std_in
-			| _ => raise Fail "opcio'n dsconocida!"
-		val lexbuf = lexstream entrada
-		val expr = prog Tok lexbuf handle _ => errParsing lexbuf
-		val _ = if escapes then tigerescap.findEscape expr else ()
-		val _ = if arbol then tigerpp.exprAst expr else ()
-		val _ = if ir then TigerSemant.checkSemant expr else ()
-	in	
-		print "yes!!\n"
-	end	handle Fail s => print(s)
 
-val _ = main(CommandLine.arguments())
+fun parseError e lexbuf= 
+		case e of
+		  Fail s => raise Fail s
+		|	Match => Error ( ErrorParsingError (Lexing.getLexeme lexbuf), Line() )
+		| e => raise e
+
+fun main(tigername, args) =
+	let	
+		val arbol = ref false
+		val escapes = ref false
+		val ir = ref false
+		val canon = ref false
+		val code = ref false
+		val flow = ref false
+		val inter = ref false
+		val asm = ref false
+		val output = ref false
+		val inputs = ref []
+		
+		fun option (arg, rel) =
+			case arg of
+				"-arbol" => (arbol := true; false)
+			| "-escapes" => (escapes := true; false)
+			| "-ir" => (ir := true; false)
+			| "-canon" => (canon := true; false)
+			| "-flow" => (flow := true; false)
+			| "-inter" => (inter := true; false)
+			| "-s" => (asm := true; false)
+			| "-o" => (output := true; true)
+			| arg => 
+					(if String.isPrefix "-" arg 
+					then TigerError.ErrorUnrecognizedOption tigername arg
+					else if !output then outputName := arg else inputs := arg :: (!inputs); false)
+		
+		fun parseInput file =
+			let 
+				val input = open_in file 
+					handle _ => raise ErrorFileNotFound file
+				
+				val lexbuf = lexstream input
+			in
+				progName := file;
+				prog Token lexbuf
+					handle e => parseError e lexbuf
+			end
+			
+		(* Parseamos los argumentos *)
+		val _ = List.foldl option false args
+		
+		(* Parseamos las entradas y construimos el AST *)
+		val expr = 
+			case !inputs of
+				[] => raise ErrorNoInputFiles	tigername
+			| [file] => parseInput file
+			| files =>  raise Fail (tigername ^ ": lo siento, actualmente no soporto multiples fuentes :(.\n")
+			
+		val _ = if !escapes then tigerescap.findEscape expr else ()
+		val _ = if !arbol then tigerpp.exprAst expr else ()
+		val _ = if !ir then TigerSemant.checkSemant expr else ()
+	in	
+		print ""
+	end	handle e => ShowErrors e
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )

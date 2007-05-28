@@ -1,6 +1,6 @@
 structure TigerSemant :> TigerSemant =
 struct
-	open tigerabs
+	open TigerAbs
 	open tigertab
 	open TigerEnv
 	open TigerTrace
@@ -104,16 +104,16 @@ struct
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 						in
 							case oper of
-								PlusOp 	=> i()
-							| MinusOp => i()
-							| TimesOp => i()
-							| DivideOp 	=> i()
-							| EqOp 		=> isar()
-							| NeqOp 	=> isar()
-							| GtOp		=> is()
-							| GeOp		=> is()
-							| LtOp		=> is()
-							| LeOp 	=> is()
+								Plus 	=> i()
+							| Minus => i()
+							| Times => i()
+							| Div 	=> i()
+							| Eq 		=> isar()
+							| Neq 	=> isar()
+							| Gt		=> is()
+							| Geq		=> is()
+							| Lt		=> is()
+							| Leq 	=> is()
 						end
 				| trexp ( RecordExp ({ fields, typ }, pos) ) = 
 						let
@@ -164,7 +164,7 @@ struct
 								else Error ( ErrorAssignTypeMismatch var, pos ))
 								handle InternalError msg => Error ( ErrorInternalError msg, pos )
 						end
-				| trexp ( IfExp ({ test, then', else' },pos) ) =
+				| trexp ( IfExp ({ test, then', else', oper },pos) ) =
 						let
 							val { exp=exptest, ty=tytest } = trexp test
 							val { exp=expthen, ty=tythen } = trexp then'
@@ -173,10 +173,10 @@ struct
 									SOME else'' => trexp else''
 							  | NONE => { exp=NN, ty=UNIT }
 						in
-							if not (isInt tytest) then Error ( ErrorIfTest, pos ) 
+							if not (isInt tytest) then Error ( ErrorIfTest oper, pos ) 
 							else
 								(if weakCompTypes (tythen, tyelse) then { exp=NN, ty=tythen }
-								else Error ( ErrorIfTypeMismatch, pos ))
+								else Error ( ErrorIfTypeMismatch oper, pos ))
 								handle InternalError msg => Error ( ErrorInternalError msg, pos )
 						end
 				| trexp ( WhileExp ({ test, body }, pos) ) =
@@ -208,7 +208,8 @@ struct
 							val { venv=venv', tenv=tenv'} =
 								List.foldl (fn (x,y) => transDec (#venv(y), #tenv(y), x)) 
 													 {venv=venv, tenv=tenv} decs
-								val { exp=expbody, ty=tybody } = transExp ( venv', tenv', body )
+							
+							val { exp=expbody, ty=tybody } = transExp ( venv', tenv', body )
 						in
 							{ exp=NN, ty=tybody }
 						end
@@ -299,21 +300,21 @@ struct
 	
 	| transDec ( venv, tenv, FunctionDec lfuncs ) =
 		let 
-
-        	val batchFunEnv = tabNueva();
+      val batchFunEnv = tabNueva();
 			
-            fun trdec1 ({name, params, result, body}, pos) =
+      fun trdec1 ({ name, params, result, body }, pos) =
 				let
-                    val	fenv = tabNueva ()
+          val	fenv = tabNueva ()
 
-					fun chkType { name = argname, escape, typ } =
+					fun chkParam { name = argname, escape, typ } =
 						case tabSearch tenv typ of
-						SOME t => (case tabInsert fenv (argname, 0) of
-            					    SOME _ => Error ( ErrorDupFieldInFunDec (name, argname), pos)
-                				    | NONE => t)
+						SOME t => 
+							(case tabInsert fenv (argname, 0) of
+					    	SOME _ => Error ( ErrorDupFieldInFunDec (name, argname), pos)
+    				   | NONE => t)
 						| NONE => Error ( ErrorUndefinedType typ, pos )
 
-					val formals = List.map chkType params
+					val formals = List.map chkParam params
 					
 					val result = case result of
 						SOME res => (
@@ -327,12 +328,12 @@ struct
 					| NONE => (tabRInsert venv ( name, FunEntry { formals=formals, result=result } ); ())
 				end
 				
-			fun trdec2 ({name, params, result, body}, pos)=
+			fun trdec2 ({ name, params, result, body }, pos) =
 				let				
 					fun insertField env { name=fname, escape, typ } =
 						case tabSearch tenv typ of
-						    SOME ty => ( tabRInsert env (fname, VarEntry{ ty=ty }); () )
-						    | NONE => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2.insertField!", pos )
+				    	SOME ty => ( tabRInsert env (fname, VarEntry{ ty=ty }); () )
+				    | NONE => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2.insertField!", pos )
 						
 					val venv' = fromTable venv
 					val _ = List.app (insertField venv') params
@@ -340,8 +341,8 @@ struct
 					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body)
 					
 					val tyres = case tabSearch venv name of
-					    SOME (FunEntry { formals, result }) => result
-						| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
+						    SOME (FunEntry { formals, result }) => result
+							| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
 				in
 					(if weakCompTypes (tyres, tybody) then ()
 					else Error ( ErrorFunDecTypeMismatch name, pos ))
