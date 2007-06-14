@@ -62,6 +62,19 @@ struct
 	
 	fun ErrorUnrecognizedOption name opt = print (name ^ ": opcion no reconocida '" ^ opt ^ "'\n")
 	
+	fun stringFromOper oper = 
+		case oper of
+			TigerAbs.Plus => "+"
+		|	TigerAbs.Minus => "-"
+		|	TigerAbs.Times => "*"
+		|	TigerAbs.Div => "/"
+		|	TigerAbs.Eq => "="
+		|	TigerAbs.Neq => "<>"
+		|	TigerAbs.Lt => "<"
+		|	TigerAbs.Leq => "<="
+		|	TigerAbs.Gt => ">"
+		|	TigerAbs.Geq => ">="
+
 	fun fieldError errty =
 		case errty of
 			TypeMismatch name => "tipo incompatible para el campo '" ^ name ^ "'.\n"
@@ -74,7 +87,7 @@ struct
 		(case err of
 			ErrorInternalError errmsg => "internal error: " ^ errmsg
 		| ErrorInvalidArgsTypesForOperator oper => 
-				"los argumentos del operador " ^ tigerpp.stringFromOper oper ^ " son invalidos."
+				"los argumentos del operador " ^ stringFromOper oper ^ " son incompatibles."
 		| ErrorUndefinedFunction func =>
 				"la funcion \"" ^ func ^ "\" no esta definida."
 		| ErrorWrongFunArgType (func, n) => 
@@ -111,7 +124,7 @@ struct
 		| ErrorDupFieldInRecordDec field => "el campo '" ^ field ^ "' esta repetido en la declaracion."
 		| ErrorVariableIsNotRecord record => "la variable no es un record."
 		| ErrorArrayIndexIsNotInt => "el indice del arreglo no es un entero."
-		| ErrorVariableIsNotArray var => "la variable '" ^ tigerpp.stringFromVar var ^ "' no es un arreglo."
+		| ErrorVariableIsNotArray var => "la variable no es un arreglo."
 		| ErrorVarDecInitIsUnit var => "tipo incompatible en la asignacion."
 		| ErrorVarDecTypeMismatch var => "en la declaracion de la variable '" ^ var ^ "' no coinciden los tipos."
 		| ErrorFunDecTypeMismatch func => "tipos incompatibles en el retorno de la funcion '" ^ func ^ "'."
