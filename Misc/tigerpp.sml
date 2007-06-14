@@ -2,9 +2,10 @@
 structure tigerpp :> tigerpp = 
 struct
 *)
-
+open TigerTree
 open TigerAbs
 open PP
+open TigerTemp
 
 fun ppexpr pps e0 = 
 	let
@@ -269,3 +270,49 @@ fun stringFromExp exp =
 			|	TigerAbs.Leq => "<="
 			|	TigerAbs.Gt => ">"
 			|	TigerAbs.Geq => ">="
+			
+	fun ppIrExp e =
+		case e of
+			CONST n => "CONST " ^ Int.toString n
+		|	NAME l => "NAME " ^ labelname l
+		|	TEMP t => "TEMP " ^ tempname t
+		|	BINOP (oper, e1, e2) => "BINOP (" ^ ppIrBinop oper ^ ", " ^ ppIrExp e1 ^ ", " ^ ppIrExp e2 ^ ")"
+		|	MEM e => "MEM (" ^ ppIrExp e ^ ")"
+		|	CALL (e, el) => "CALL (" ^ ppIrExp e ^ ", [" ^ List.foldl (fn (x, y) => y ^ ppIrExp x ^ ", ") "" el ^ "\b\b])"
+		| ESEQ (s, e) => "ESEQ (" ^ ppIrStm s ^ ", " ^ ppIrExp e ^ ")"
+	
+	and ppIrStm s =
+		case s of
+			MOVE (e1, e2) => "MOVE (" ^ ppIrExp e1 ^ ", " ^ ppIrExp e2 ^ ")"
+		| JUMP (e, ll) => "JUMP (" ^ ppIrExp e ^ ", [" ^ List.foldl (fn (x, y) => y ^ labelname x ^ ", ") "" ll ^ "\b\b])"
+		| EXP e => "EXP (" ^ ppIrExp e ^ ")"
+		| CJUMP (oper, e1, e2, t1, t2) => 
+				"CJUMP (" ^ ppIrRelop oper ^ ", " ^ ppIrExp e1 ^ ", " ^ ppIrExp e2 ^ ", " ^ labelname t1 ^ ", " ^ labelname t2 ^ ")"
+		| SEQ (s1, s2) => "SEQ (" ^ ppIrStm s1 ^ ", " ^ ppIrStm s2 ^ ")"
+		| LABEL l => "LABEL (" ^ labelname l ^ ")"
+	
+	and ppIrBinop oper =
+		case oper of
+			PLUS => "PLUS" 
+		| MINUS => "MINUS" 
+		| MUL => "MUL" 
+		| DIV => "DIV"
+		| AND => "AND" 
+		| OR => "OR" 
+		| XOR => "XOR"
+		| LSHIFT => "LSHIFT" 
+		| RSHIFT => "RSHIFT" 
+		| ARSHIFT => "ARSHIFT"
+	
+	and ppIrRelop oper =
+		case oper of
+			EQ => "EQ" 
+		| NE => "NE" 
+		| LT => "LT" 
+		| LE => "LE" 
+		| GT => "GT" 
+		| GE => "GE"
+		| ULT => "ULT" 
+		| ULE => "ULE" 
+		| UGT => "UGT" 
+		| UGE => "UGE"

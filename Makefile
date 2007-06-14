@@ -40,7 +40,6 @@ GRALOBJS= \
 	TigerLineNumber.uo \
 	TigerProgName.uo \
 	TigerAbs.uo \
-	tigerpp.uo \
 	TigerTypes.uo \
 	TigerError.uo \
 	TigerUtils.uo \
@@ -48,9 +47,13 @@ GRALOBJS= \
 	Scanner.uo \
 	tigertab.uo \
 	tigerescap.uo \
+	TigerTemp.uo \
+	TigerTree.uo \
+	TigerFrame.uo \
+	TigerTranslate.uo \
 	TigerEnv.uo \
-	TigerTrace.uo \
 	TigerSemant.uo \
+	tigerpp.uo \
 	tigermain.uo
 
 all: tiger
@@ -125,10 +128,16 @@ tigertab.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigertab.sig $(MISC)/tigertab.sml
 tigerescap.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigerescap.sig $(MISC)/tigerescap.sml
+TigerTemp.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTemp.sig $(SEMANTIC)/TigerTemp.sml
+TigerTree.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTree.sml
+TigerFrame.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerFrame.sig $(SEMANTIC)/TigerFrame.sml	
+TigerTranslate.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTranslate.sig $(SEMANTIC)/TigerTranslate.sml
 TigerEnv.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerEnv.sml
-TigerTrace.uo:
-	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTrace.sml
 TigerSemant.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerSemant.sig $(SEMANTIC)/TigerSemant.sml
 tigerpp.uo:
@@ -137,10 +146,6 @@ tigerpp.uo:
 #.sml.uo:
 #	$(MOSMLC) $<
 
-depend: TigerLineNumber.sml TigerAbs.sml Parser.sml Scanner.sml tigermain.sml tigerpp.sml
-	$(REMOVE) Makefile.bak
-	$(MOVE) Makefile Makefile.bak
-	$(MOSMLTOOLS)/cutdeps < Makefile.bak > Makefile
-	$(MOSMLTOOLS)/mosmldep >> Makefile
+depend: Parser.sml Scanner.sml
 
 ### DO NOT DELETE THIS LINE

@@ -18,6 +18,7 @@ fun main(tigername, args) =
 		val arbol = ref false
 		val escapes = ref false
 		val ir = ref false
+		val arbol_ir = ref false
 		val canon = ref false
 		val code = ref false
 		val flow = ref false
@@ -31,6 +32,7 @@ fun main(tigername, args) =
 				"-arbol" => (arbol := true; false)
 			| "-escapes" => (escapes := true; false)
 			| "-ir" => (ir := true; false)
+			| "-irtree" => (arbol_ir := true; false)
 			| "-canon" => (canon := true; false)
 			| "-flow" => (flow := true; false)
 			| "-inter" => (inter := true; false)
@@ -65,9 +67,16 @@ fun main(tigername, args) =
 			
 		val _ = if !escapes then tigerescap.findEscape expr else ()
 		val _ = if !arbol then tigerpp.exprAst expr else ()
-		val _ = if !ir then TigerSemant.checkSemant expr else ()
 	in	
-		print ""
+		if !ir then 
+			let 
+				val irtree = TigerSemant.checkSemant expr 
+				val _ = if !arbol_ir then print ((
+						case irtree of TigerTranslate.NN => "NN" | t => tigerpp.ppIrExp(TigerTranslate.unEx t))^"\n") else ()
+			in
+				()
+			end
+		else ()
 	end	handle e => ShowErrors e
 
 val _ = main( CommandLine.name(), CommandLine.arguments() )
