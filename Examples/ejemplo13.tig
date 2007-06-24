@@ -1,0 +1,8 @@
+let 
+	type R = {a:int, b:R}
+	var v := R{a=1, b=R{a=2, b=R{a=3, b=nil} } }
+	
+in
+	(v.b.b.a;
+	v.b.a)
+end

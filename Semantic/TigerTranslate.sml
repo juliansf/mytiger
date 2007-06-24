@@ -9,19 +9,42 @@ struct
 	type level = { depth: int, lstack: label list ref, frame: frame, parent: frame option }
 	type access = level * TigerFrame.access
 	
+	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
+								| STRING of TigerTemp.label * string
+	
+	val lfrag : frag list ref = ref []
 	val outermost = {depth=0, lstack = ref [], frame = newFrame (namedlabel "_tigermain", []), parent=NONE }
 	
-	fun newLevel (parent:level, name, formals) =
-		{depth = #depth(parent) + 1, lstack = ref [], frame = newFrame (name, formals), parent = SOME (#frame(parent)) }
+	fun getResult() = !lfrag
+	fun addProc(body, frame) = lfrag := PROC {body=body, frame=frame} :: (!lfrag) 
+	fun addString(label, string) = lfrag := STRING (label, string) :: (!lfrag)
+	
+	fun toplb lst = hd(!lst)
+	fun pushlb lst x = lst := x :: (!lst)
+	fun poplb lst = lst := tl(!lst)
+	
+	fun preWhileFor (level:level) = pushlb (#lstack(level)) (newlabel())
+	fun posWhileFor (level:level) = poplb (#lstack(level))
+	
+	fun sl_access (caller:level) (callee:level) =
+		TigerFrame.sl_access (#depth(caller) - #depth(callee))
+	
+	fun var_access (varlevel:level, access) (level:level) =
+		TigerFrame.var_access (access, #depth(level) - #depth(varlevel))
+	
+	fun newLevel 
+	(parent:level, name, formals) =
+		{depth = #depth(parent) + 1, lstack = ref [], frame = newFrame (namedlabel2 name, formals), parent = SOME (#frame(parent)) }
+		
+	fun getLevelLabel (level:level) = getFrameLabel(#frame(level))
 	
 	fun formals (level:level) = List.map (fn x => (level, x)) (TigerFrame.formals (#frame(level)))
 	
 	fun allocLocal (level:level) escapes =
 		(level, TigerFrame.allocLocal (#frame(level)) escapes)
-	
+
 	datatype exp =
-		NN
-	| Ex of TigerTree.exp (* Expresion *)
+	  Ex of TigerTree.exp (* Expresion *)
 	| Nx of TigerTree.stm (* No Result *)
 	| Cx of TigerTemp.label * TigerTemp.label -> TigerTree.stm (* Condicion *)
 
@@ -44,7 +67,6 @@ struct
 										 LABEL lf ],
 							TEMP temp )
 			end
-		| unEx _ = raise Fail "unEx"
 			
 	fun unNx (Ex e) = EXP e
 		|	unNx (Nx s) = s
@@ -54,7 +76,6 @@ struct
 			in
 				seq [c (lv, lf), LABEL lv, LABEL lf]
 			end
-		| unNx _ = raise Fail "unNx"
 	
 	fun unCx (Ex (CONST n)) = (fn (lv, lf) => JUMP (NAME (if n = 0 then lf else lv), [lv, lf]))
 		|	unCx (Ex e) = (fn (lv, lf) => CJUMP ( NE, e, CONST 0, lv, lf ))
@@ -70,19 +91,23 @@ struct
 		let
 			val l = newlabel()
 		in
-			(*procesaString(s,l);*)
+			addString(l,s);
 			Ex (NAME l)
 		end
 		
-	fun callExp (name, params, proc:bool) =
-		if not proc then
-			let
-				val temp = newtemp()
-			in
-				Ex (ESEQ (SEQ (EXP (CALL (NAME name, List.map unEx params)), MOVE (TEMP temp, TEMP RV)), TEMP temp))
-			end
-		else
-			Nx (EXP (CALL (NAME name, List.map unEx params)))
+	fun callExp (name, params, caller, callee, proc:bool) =
+		let 
+			val params' = sl_access caller callee :: List.map unEx params
+		in
+			if not proc then
+				let
+					val temp = newtemp()
+				in
+					Ex (ESEQ (SEQ (EXP (CALL (NAME name, params')), MOVE (TEMP temp, TEMP RV)), TEMP temp))
+				end
+			else
+				Nx (EXP (CALL (NAME name, params')))
+		end
 	
 	fun opExp (oper, exp1, exp2) =
 		let 
@@ -147,5 +172,86 @@ struct
 								LABEL lf, unNx else', LABEL join])
 		end
 		
+	fun whileExp (test, body, level:level) =
+		let
+			val (lv, lf, ls) = (newlabel(), toplb(#lstack(level)), newlabel())
+		in
+			Nx(seq[LABEL ls, (unCx test) (lv, lf), LABEL lv, unNx body, JUMP (NAME ls, [ls]), LABEL lf]) 
+		end
 		
+	fun forExp (index, lo, hi, body, level:level) =
+		let
+			val index' = var_access index level
+			val (loop, sale, sigue) = (newlabel(), toplb(#lstack(level)), newlabel())
+			val tmphi = newtemp() 
+		in
+			Nx (seq [ MOVE (index', unEx lo),
+				MOVE (TEMP tmphi, unEx hi),
+				CJUMP (GT, index', TEMP tmphi, loop, sale),
+				LABEL sigue,
+				MOVE (index', BINOP (PLUS, index', CONST 1)),
+				LABEL loop,
+				unNx body,
+				CJUMP (GE, index', TEMP tmphi, sale, sigue),
+				LABEL sale])
+		end
+	
+	fun letExp (inits, body, true) = Nx (seq(List.map unNx inits @ [unNx body]))
+		| letExp (inits, body, false) = Ex(
+				case inits of 
+					[] => unEx body 
+				| inits => ESEQ (seq (List.map unNx inits), unEx body))
+
+	fun breakExp (level:level) =
+		let 
+			val label = toplb (#lstack(level))
+				handle Empty => raise BreakError
+		in
+			Nx(JUMP (NAME label, [label]))
+		end
+		
+	fun arrayExp(size, init)=
+		let 
+			val temp = newtemp()
+		in
+			Ex (ESEQ (
+						SEQ (EXP (externalCall ("_createArray", [unEx size, unEx init]) ),
+								MOVE (TEMP temp, TEMP RV)), 
+						TEMP temp))
+		end		
+	
+	(* Traduccion de Variables *)
+	fun simpleVar (access, level) = Ex (var_access access level)
+	
+	fun fieldVar (varaddr, offset) =
+			Ex ( MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, CONST offset), unEx varaddr)))
+	
+	fun subscriptVar (varaddr, expOffset) =
+			Ex ( MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, unEx expOffset), unEx varaddr)))
+	
+	(* Traduccion de declaraciones *)
+	fun varDec (access, init) = 
+		let
+			val varaddr = var_access access (#1(access))
+		in
+			Nx (MOVE (varaddr, unEx init))
+		end
+		
+	(* Construccion de un nuevo Fragmento de tipo PROC *)
+	fun procEntryExit (level:level, body) =
+		let
+			val frame = #frame(level)
+			val funlabel = getFrameLabel(frame)
+			val procbody = seq[ LABEL (namedlabel "Prologo"), LABEL funlabel, unNx(body), LABEL (namedlabel "Epilogo")]
+		in
+			addProc(procEntryExit1 (procbody, frame), frame )
+		end	
+		
+			
+	(* TEMPORAL *)
+	fun pp (STRING (l, s)) = print (TigerTemp.labelname l ^ ": " ^ s ^ "\n")
+	| pp (PROC {body, frame}) = (tigerpp.printtree(BasicIO.std_out, body); 
+							print "\n-------------------------------------\n")
+	 
+	(* TEMPORAL *)
 end

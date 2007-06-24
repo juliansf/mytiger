@@ -4,20 +4,30 @@ sig
 	(*Manejo de frames y levels*)
 	type level
 	type access
-		
+	type frag
+	
 	val outermost : level
-	val newLevel : level * TigerTemp.label * bool list -> level
+	val newLevel : level * string * bool list -> level
+	val getLevelLabel : level -> TigerTemp.label
 	
 	val formals : level -> access list
 	val allocLocal : level -> bool -> access
+	val getResult : unit -> frag list
+	val addProc : TigerTree.stm * TigerFrame.frame -> unit
+	val addString : TigerTemp.label * string -> unit
 	
-	(*Traduccion a codigo intermedio*)
-	datatype exp = (* TEMPORAL! Despues hay que cambiarlo a "type exp" *)
-		NN
-	| Ex of TigerTree.exp (* Expresion *)
-	| Nx of TigerTree.stm (* No Result *)
-	| Cx of TigerTemp.label * TigerTemp.label -> TigerTree.stm (* Condicion *)
+	val preWhileFor : level -> unit
+	val posWhileFor : level -> unit
 	
+	(* Traduccion a codigo intermedio *)
+	type exp
+	
+	(* TEMPORAL *)
+	val pp : frag -> unit
+	(* TEMPORAL *)
+	
+	val procEntryExit : level * exp -> unit
+
 	val unEx : exp -> TigerTree.exp
 	val unNx : exp -> TigerTree.stm
 	val unCx : exp -> TigerTemp.label * TigerTemp.label -> TigerTree.stm
@@ -28,10 +38,21 @@ sig
 	val nilExp : unit -> exp
 	val intExp : int -> exp
 	val stringExp : string -> exp
-	val callExp : TigerTemp.label * exp list * bool -> exp
+	val callExp : TigerTemp.label * exp list * level * level * bool -> exp
 	val opExp : TigerAbs.oper * exp * exp -> exp
 	val recordExp : exp list -> exp
 	val seqExp : exp list * exp * bool -> exp
 	val assignExp : exp * exp -> exp
 	val ifExp : exp * exp * exp * TigerAbs.ifop * bool -> exp
+	val whileExp : exp * exp * level -> exp
+	val forExp : access * exp * exp * exp * level -> exp
+	val letExp : exp list * exp * bool -> exp
+	val breakExp: level -> exp
+	val arrayExp: exp * exp -> exp
+	
+	val simpleVar : access * level -> exp
+	val fieldVar : exp * int -> exp
+	val subscriptVar : exp * exp -> exp
+	
+	val varDec : access * exp -> exp
 end

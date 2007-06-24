@@ -19,6 +19,7 @@ struct
 		fun newtemp () = newname "T" tcount
 		fun namedtemp s = s
 		fun namedlabel s = s
+		fun namedlabel2 s = s ^ "_" ^ newlabel()
 		fun labelname s = s
 		fun tempname t = t
 	end

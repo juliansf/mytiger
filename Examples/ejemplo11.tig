@@ -1,0 +1,15 @@
+/*(
+let 
+	var x : int := 1
+	function f() : int = 
+		let function g() : int = f() in g() end
+in x := f() end;
+
+let
+	var a:int := 1
+	function f () : int = a
+in
+	f()
+end
+)*/
+let function f():string = "hola" in f() end
