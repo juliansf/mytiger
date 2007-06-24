@@ -8,6 +8,7 @@ struct
 	exception ErrorFileNotFound of string
 	exception ErrorEmptyFile of string
 	exception ErrorNoInputFiles of string
+	exception BreakError
 	
 	datatype errorfield =
 		TypeMismatch of string
@@ -50,6 +51,7 @@ struct
 	| ErrorEscapeVariableNotExists of string
 	| ErrorTypeAlreadyDeclared of string
 	| ErrorRecursiveTypeDeclaration
+	| ErrorWrongBreakUsage
 	
 	(* Errores de Parsing *)
 	| ErrorParsingError of string
@@ -134,6 +136,7 @@ struct
 		| ErrorEscapeVariableNotExists var => "escapes: variable inexistente: '" ^ var ^ "'."
 		| ErrorTypeAlreadyDeclared typ => "el tipo '" ^ typ ^ "' ya esta declarado en este batch."
 		| ErrorRecursiveTypeDeclaration => "declaracion recursiva de tipos."
+		| ErrorWrongBreakUsage => "sentencia break usada fuera de bucle 'while' o 'for'."
 		
 		(* Errores de Parsing *)
 		| ErrorParsingError str => "error de parseo causado por '" ^ str ^ "'."

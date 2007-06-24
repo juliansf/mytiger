@@ -25,11 +25,12 @@ struct
 				| trexp ( StringExp (s,p) ) = { exp=stringExp s, ty=STRING }
 				| trexp ( CallExp ({ func, args }, pos) ) =
 						let 
-							val { label, formals, result } =
+							val { flevel, label, formals, result } =
 							(* Buscamos la funcion en el entorno *)
 							case tabSearch venv func of
 								(* Obtenemos los parametros formales y el tipo del resultado *)
-								SOME (FunEntry { level, label, formals, result }) => { label=label, formals=formals, result=result }
+								SOME (FunEntry { level, label, formals, result }) => 
+									{ flevel = level, label=label, formals=formals, result=result }
 							| _ => Error ( ErrorUndefinedFunction func, pos )
 							
 							(* Obtenemos los tipos de los argumentos pasados a la funcion *)
@@ -53,7 +54,7 @@ struct
 								( 
 									(* Se chequean los parametros *)
 									ListPair.all equalTypes (tyList, formals); 
-									{ exp=callExp(label, expList, result=UNIT) , ty=result } 
+									{ exp=callExp(label, expList, level, flevel, result=UNIT) , ty=result } 
 								)
 							else
 								(* La cantidad de argumetnos pasados es menor o mayor a la esperada *)
@@ -189,40 +190,60 @@ struct
 								handle InternalError msg => Error ( ErrorInternalError msg, pos )
 						end
 				| trexp ( WhileExp ({ test, body }, pos) ) =
-						let 
+						let
+							val _ = preWhileFor(level) 
 							val { exp=exptest, ty=tytest } = trexp test
-							val { exp=expbody, ty=tybody } = trexp body
 						in
 							if not (isInt tytest) then Error ( ErrorWhileTest, pos ) 
 							else
-								if tybody = UNIT then { exp=NN, ty=UNIT }
-								else Error ( ErrorWhileBody, pos )
+								let
+									val { exp=expbody, ty=tybody } = trexp body
+									val expWhile = whileExp(exptest, expbody, level)
+									val _ = posWhileFor(level)
+								in
+									if tybody = UNIT then { exp=expWhile, ty=UNIT }
+									else Error ( ErrorWhileBody, pos )
+								end
 						end
 				| trexp ( ForExp ({ var, escape, lo, hi, body }, pos) ) =
 						let
 							val { exp=explo, ty=tylo } = trexp lo
 							val { exp=exphi, ty=tyhi } = trexp hi
 							
+							val indexAccess = allocLocal level (!escape)
+							
 							val venv' = fromTable venv
-							val venv' = tabRInsert venv' (var, VarEntry { access=allocLocal level (!escape), ty=INT RO } )
-							val { exp=expbody, ty=tybody } = transExp ( venv', tenv, body, level )
+							val venv' = tabRInsert venv' (var, VarEntry { access=indexAccess, ty=INT RO } )
+							
 						in 
 							if not (isInt tylo) then Error ( ErrorForLowExp, pos ) else ();
 							if not (isInt tyhi) then Error ( ErrorForHiExp, pos ) else ();
-							if tybody <> UNIT then Error ( ErrorForWrongBodyType, pos ) else ();
-							{ exp=NN, ty=UNIT }
+							preWhileFor(level);
+							let 
+								val { exp=expbody, ty=tybody } = transExp ( venv', tenv, body, level )
+							in
+								if tybody <> UNIT then Error ( ErrorForWrongBodyType, pos ) 
+								else
+									let 
+										val expFor = forExp (indexAccess, explo, exphi, expbody, level)
+									in 
+										posWhileFor(level);
+										{ exp=expFor, ty=UNIT } 
+									end
+							end
 						end
 				| trexp ( LetExp ({ decs, body }, pos) ) =
 						let
-							val { venv=venv', tenv=tenv'} =
-								List.foldl (fn (x,y) => transDec (#venv(y), #tenv(y), x, level)) 
-													 {venv=venv, tenv=tenv} decs
+							val { venv=venv', tenv=tenv', decs=expdecs} =
+								List.foldl (fn (x,y) => transDec (#venv(y), #tenv(y), x, level, #decs(y))) 
+													 {venv=venv, tenv=tenv, decs=[]} decs
 							
 							val { exp=expbody, ty=tybody } = transExp ( venv', tenv', body, level )
 						in
-							{ exp=NN, ty=tybody }
+							{ exp=letExp(List.rev expdecs, expbody, tybody=UNIT), ty=tybody }
 						end
-				| trexp ( BreakExp pos ) = { exp=NN, ty=UNIT }
+				| trexp ( BreakExp pos ) = ({ exp=breakExp(level), ty=UNIT } 
+						handle BreakError => Error (ErrorWrongBreakUsage, pos))
 				| trexp ( ArrayExp ({typ, size, init}, pos) ) =
 						let
 							val (aty, auniq) = case tabSearch tenv typ of
@@ -237,7 +258,7 @@ struct
                 Error ( ErrorArrayTypeMismatch typ, pos ) else ())			
               handle InternalError msg => Error ( ErrorInternalError msg, pos );				
 
-							{ exp=NN, ty=ARRAY (aty, auniq) }
+							{ exp=arrayExp (expsize, expinit), ty=ARRAY (aty, auniq) }
 						end						
 		in
 			trexp expr
@@ -245,11 +266,11 @@ struct
 
 	and transVar ( venv, tenv, SimpleVar v, pos, level ) =
 		let
-			val ty = case tabSearch venv v of
-				SOME (VarEntry { access, ty }) => ty
-			| _ => Error ( ErrorUndefinedVariable v, pos )
+			val {access, ty} = case tabSearch venv v of
+				SOME (VarEntry v) => v
+				| _ => Error ( ErrorUndefinedVariable v, pos )
 		in
-			{ exp=NN, ty=ty }
+			{ exp=simpleVar (access, level), ty=ty }
 		end
 
 	| transVar ( venv, tenv, FieldVar (var, symbol), pos, level) =
@@ -261,9 +282,11 @@ struct
 					NAME (n, ref (SOME (RECORD (ml, _)))) => ml
 				| RECORD (ml, _) => ml
 				| _ => Error ( ErrorVariableIsNotRecord var, pos )
+				
+			val offset = ref ~1
 		in
-			case List.find (fn (x,y) => x = symbol) ml of
-				SOME (sym,ty) => { exp=NN, ty=ty }
+			case List.find (fn (x,y) => (offset := !offset + 1; x = symbol)) ml of
+				SOME (sym,ty) => { exp=fieldVar(expvar, !offset), ty=ty }
 			| NONE => Error ( ErrorRecordFieldUndefined (var, symbol), pos )
 		end
 			
@@ -277,21 +300,22 @@ struct
 			| ARRAY (ty, _) => ty
 			| _ => Error ( ErrorVariableIsNotArray var, pos ) 
 		in
-			if isInt tyexp then { exp=NN, ty=ty }
+			if isInt tyexp then { exp=subscriptVar(expvar, expexp), ty=ty }
 			else Error ( ErrorArrayIndexIsNotInt, pos )
 		end
 	
-	and transDec ( venv, tenv, VarDec ({ name, escape, typ=NONE, init}, pos ), level ) =
+	and transDec ( venv, tenv, VarDec ({ name, escape, typ=NONE, init}, pos ), level, decs ) =
 		let
 			val { exp=expinit, ty=tyinit } = transExp ( venv, tenv, init, level )
 			val tyinit = case tyinit of INT _ => INT RW | t => t
-			val venv = tabRInsert venv ( name, VarEntry { access=allocLocal level (!escape), ty=tyinit } )
+			val access = allocLocal level (!escape)
+			val venv = tabRInsert venv ( name, VarEntry { access=access, ty=tyinit } )
 		in
-			if tyinit <> UNIT then { venv=venv, tenv=tenv }
+			if tyinit <> UNIT then { venv=venv, tenv=tenv, decs=varDec (access, expinit) :: decs }
 			else Error ( ErrorVarDecInitIsUnit name, pos )
 		end
 	
-	| transDec ( venv, tenv, VarDec ({ name, escape, typ=SOME ty, init }, pos ), level ) =
+	| transDec ( venv, tenv, VarDec ({ name, escape, typ=SOME ty, init }, pos ), level, decs ) =
 		let
 			val ty' = case tabSearch tenv ty of
 				SOME t => t
@@ -300,28 +324,34 @@ struct
 			val { exp=expinit, ty=tyinit } = transExp ( venv, tenv, init, level )
 		in
 			(if weakCompTypes ( ty', tyinit ) 
-			then { venv=tabRInsert venv ( name, VarEntry { access=allocLocal level (!escape), ty=ty' } ), tenv=tenv }
+			then
+				let 
+					val access = allocLocal level (!escape)
+					val venv = tabRInsert venv ( name, VarEntry { access=access, ty=ty' } )
+				in
+					{ venv=venv, tenv=tenv, decs=varDec (access, expinit) :: decs }
+				end
 			else Error ( ErrorVarDecTypeMismatch name, pos ))
 			handle InternalError msg => Error ( ErrorInternalError msg, pos )
 	  end
 	
-	| transDec ( venv, tenv, FunctionDec lfuncs, level ) =
+	| transDec ( venv, tenv, FunctionDec lfuncs, level, decs ) =
 		let 
       val batchFunEnv = tabNueva();
 			
       fun trdec1 ({ name, params, result, body }, pos) =
 				let
-          val	fenv = tabNueva ()
+					val	fenv = tabNueva ()
 
 					fun chkParam { name = argname, escape, typ } =
 						case tabSearch tenv typ of
 						SOME t => 
 							(case tabInsert fenv (argname, 0) of
 					    	SOME _ => Error ( ErrorDupFieldInFunDec (name, argname), pos)
-    				   | NONE => t)
+    				   | NONE => (t, !escape))
 						| NONE => Error ( ErrorUndefinedType typ, pos )
 
-					val formals = List.map chkParam params
+					val (formals, escapes) = ListPair.unzip (List.map chkParam params)
 					
 					val result = case result of
 						SOME res => (
@@ -329,11 +359,12 @@ struct
 								SOME t => t
 							|	NONE => Error ( ErrorUndefinedType res, pos ) )
 					| NONE => UNIT
+					
+					val funlevel = newLevel(level, name, escapes)
 				in
 					case tabInsert batchFunEnv (name, 0) of
 						SOME _ => Error ( ErrorFunAlreadyDeclared name, pos )
-					| NONE => (tabRInsert venv ( name, FunEntry { level=level, label=TigerTemp.newlabel() ,formals=formals, result=result } ); ())
-					(* <<< IMPLEMENTACION TEMPORAL!!! CAMBIARLO!!!!!!!!!!!! >>>*)
+					| NONE => (tabRInsert venv ( name, FunEntry { level=funlevel, label=getLevelLabel funlevel,formals=formals, result=result } ); ())
 				end
 				
 			fun trdec2 ({ name, params, result, body }, pos) =
@@ -346,23 +377,24 @@ struct
 					val venv' = fromTable venv
 					val _ = List.app (insertField venv') params
 					
-					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body, level) (* CAMBIARLO!!! *)
+					val (FunEntry r) = valOf (tabSearch venv name)
+					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body, #level(r))
 					
 					val tyres = case tabSearch venv name of
 						    SOME (FunEntry { level, label, formals, result }) => result
 							| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
 				in
-					(if weakCompTypes (tyres, tybody) then ()
+					(if weakCompTypes (tyres, tybody) then (procEntryExit (#level(r), expbody))
 					else Error ( ErrorFunDecTypeMismatch name, pos ))
 					handle InternalError msg => Error ( ErrorInternalError msg, pos )
 				end
 		in
 			List.app trdec1 lfuncs;
 			List.app trdec2 lfuncs;
-			{ venv=venv, tenv=tenv }
+			{ venv=venv, tenv=tenv, decs=decs }
 		end
 		
-	| transDec ( venv, tenv, TypeDec ltdecs, level ) = 
+	| transDec ( venv, tenv, TypeDec ltdecs, level, decs ) = 
 		let 
 			val tenv' = tabNueva()
 			
@@ -455,7 +487,7 @@ struct
 				let val (_,pos) = valOf (List.find (fn (x,y) => #name(x) = name) ltdecs) 
 				in Error (ErrorRecursiveTypeDeclaration, pos) end
 			end;
-			{ venv=venv, tenv=tenv } 
+			{ venv=venv, tenv=tenv, decs=decs } 
 		end
 		
 	and transTy (tenv, NameTy ty) =
@@ -476,6 +508,11 @@ struct
 	
 	| transTy (tenv, ArrayTy ty) = ARRAY ( transTy (tenv, NameTy ty), ref ())
 	
-	fun checkSemant prog = #exp(transExp ( TigerEnv.venv, TigerEnv.tenv, prog, outermost))
-		
+	fun transProg prog = 
+		let 
+			val {exp=body, ty} = transExp ( TigerEnv.venv, TigerEnv.tenv, prog, outermost)
+			val _ = procEntryExit (outermost, body)
+		in
+			getResult()
+		end
 end

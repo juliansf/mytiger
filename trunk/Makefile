@@ -50,10 +50,10 @@ GRALOBJS= \
 	TigerTemp.uo \
 	TigerTree.uo \
 	TigerFrame.uo \
+	tigerpp.uo \
 	TigerTranslate.uo \
 	TigerEnv.uo \
 	TigerSemant.uo \
-	tigerpp.uo \
 	tigermain.uo
 
 all: tiger

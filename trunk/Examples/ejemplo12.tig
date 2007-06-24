@@ -1,0 +1,7 @@
+let
+	var x:int := 1
+in
+	while(x<5) do
+			while (x<6) do 
+				break
+end

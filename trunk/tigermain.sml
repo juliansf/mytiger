@@ -11,6 +11,7 @@ fun parseError e lexbuf=
 		case e of
 		  Fail s => raise Fail s
 		|	Match => Error ( ErrorParsingError (Lexing.getLexeme lexbuf), Line() )
+		| Parsing.ParseError _ => Error ( ErrorParsingError (Lexing.getLexeme lexbuf), Line() )
 		| e => raise e
 
 fun main(tigername, args) =
@@ -70,11 +71,9 @@ fun main(tigername, args) =
 	in	
 		if !ir then 
 			let 
-				val irtree = TigerSemant.checkSemant expr 
-				val _ = if !arbol_ir then print ((
-						case irtree of TigerTranslate.NN => "NN" | t => tigerpp.ppIrExp(TigerTranslate.unEx t))^"\n") else ()
+				val lfrag = TigerSemant.transProg expr 
 			in
-				()
+				if !arbol_ir then (List.map TigerTranslate.pp lfrag; ()) else ()
 			end
 		else ()
 	end	handle e => ShowErrors e

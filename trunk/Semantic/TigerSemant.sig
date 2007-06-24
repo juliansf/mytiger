@@ -5,7 +5,7 @@ sig
 	type expty
 	val transVar : venv * tenv * TigerAbs.var * TigerAbs.pos * TigerTranslate.level -> expty
 	val transExp : venv * tenv * TigerAbs.exp * TigerTranslate.level -> expty
-	val transDec : venv * tenv * TigerAbs.dec * TigerTranslate.level -> { venv:venv, tenv:tenv }
+	val transDec : venv * tenv * TigerAbs.dec * TigerTranslate.level * TigerTranslate.exp list -> { venv:venv, tenv:tenv, decs:TigerTranslate.exp list }
 	val transTy  : tenv * TigerAbs.ty -> TigerTypes.ty
-	val checkSemant : TigerAbs.exp -> TigerTranslate.exp
+	val transProg : TigerAbs.exp -> TigerTranslate.frag list
 end

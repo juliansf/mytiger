@@ -5,7 +5,7 @@ struct
 	open TigerTree
 	type register = string
 	datatype access = InFrame of int | InReg of TigerTemp.temp
-	type frame = {localoffset: int ref, formals: access list, label: TigerTemp.label}
+	type frame = {localOffset: int ref, formals: access list, label: TigerTemp.label}
 	
 	val RV = namedtemp("RV")
 	val FP = namedtemp("FP")
@@ -13,6 +13,7 @@ struct
 	val registers = ["RV","FP","SP"]
 	val tempMap = tabNueva()
 	val wordSize = 8
+	val prologSize = wordSize * 1
 	val incrLocal = ~wordSize
 	fun externalCall (name, params) = CALL (NAME (namedlabel(name)), params)
 
@@ -24,25 +25,35 @@ struct
 														 InFrame(!argsoffset) :: argList) 
 										|false => InReg (newtemp()) :: argList
 		in																																								
-			{localoffset = ref 0, formals = List.foldl processFormals [] (true::formals), label = name}		(*true::formals es para dejar como 1er arg al static link*)
+			{localOffset = ref 0, formals = List.foldl processFormals [] (true::formals), label = name}		(*true::formals es para dejar como 1er arg al static link*)
 		end
 			
-	fun formals {localoffset, formals, label} = formals
+	fun formals {localOffset, formals, label} = formals
 	
-	fun name {localoffset, formals, label} = label
+	fun name {localOffset, formals, label} = label
 	
-	fun allocLocal {localoffset, formals, label} escapes =
-		case escapes of true => (localoffset := !localoffset + incrLocal;
-														 InFrame(!localoffset) )
-									| false => InReg(newtemp())
+	fun allocLocal {localOffset, formals, label} escapes =
+		if escapes
+		then (localOffset := !localOffset + incrLocal; InFrame(!localOffset) )
+		else InReg (newtemp())
 									 
 	fun string label s = labelname(label) ^ ": .ascii \"" ^ s ^ "\"\n"
 	
-	fun procEntryExit1 (frame, body) = body
+	fun sl_access ~1 = TEMP FP
+		| sl_access 0 = MEM (BINOP (PLUS, CONST prologSize, TEMP FP))
+		| sl_access n = MEM (BINOP (PLUS, CONST prologSize, sl_access (n-1)))
+	
+	fun var_access (InReg t, _) = TEMP t
+		| var_access (InFrame off, n) =
+				let 
+					fun aux 0 = TEMP FP
+					  | aux n = MEM (BINOP (PLUS, CONST prologSize, aux (n-1)))
+				in MEM (BINOP (PLUS, CONST off, aux n)) end
+	
+	fun getFrameLabel (frame:frame) = #label(frame)
+	
+	fun procEntryExit1 (body, frame) = body
 (*	val procEntryExit2 : frame * TigerAssem.instr list -> TigerAssem.inst list
 	val procEntryExit3 : frame * TigerAssem.instr list -> 
 												{ prolog : string, body : TigerAssem.instr list, epiloge : string }*)
-	
-	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
-								| STRING of TigerTemp.label * string
 end
