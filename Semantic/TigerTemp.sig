@@ -1,7 +1,7 @@
 signature TigerTemp =
 sig
-	type temp
-	type label
+	eqtype temp
+	eqtype label
 	val newlabel : unit -> label
 	val newtemp : unit -> temp
 	val namedtemp : string -> temp

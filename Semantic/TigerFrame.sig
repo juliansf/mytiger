@@ -4,6 +4,9 @@ sig
 	type frame
 	type access
 	
+	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
+								| STRING of TigerTemp.label * string
+	
 	val RV : TigerTemp.temp
 	val FP : TigerTemp.temp
 	val SP : TigerTemp.temp

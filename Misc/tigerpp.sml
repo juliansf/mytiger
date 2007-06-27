@@ -289,7 +289,7 @@ fun stringFromExp exp =
 		| CJUMP (oper, e1, e2, t1, t2) => 
 				"CJUMP (" ^ ppIrRelop oper ^ ", " ^ ppIrExp e1 ^ ", " ^ ppIrExp e2 ^ ", " ^ labelname t1 ^ ", " ^ labelname t2 ^ ")"
 		| SEQ (s1, s2) => "SEQ (" ^ ppIrStm s1 ^ ", " ^ ppIrStm s2 ^ ")"
-		| LABEL l => "LABEL (" ^ labelname l ^ ")"
+		| LABEL l => "LABEL " ^ labelname l
 	
 	and ppIrBinop oper =
 		case oper of
@@ -375,3 +375,12 @@ fun printtree (outstream, s0) =
 	 in  
 	 	stm(s0,0); sayln ""; BasicIO.flush_out outstream
 	 end
+	 
+fun ppfrag (TigerFrame.STRING (l, s)) = print (labelname l ^ ": " ^ s ^ "\n")
+	| ppfrag (TigerFrame.PROC {body, frame}) = (printtree(BasicIO.std_out, body); 
+																		  				print "\n-------------------------------------\n")
+
+fun ppCanonFrag (TigerCanon.LITERAL (l, s)) = print (labelname l ^ ": " ^ s ^ "\n")
+	|	ppCanonFrag (TigerCanon.FUNC {body, frame}) = 
+		(List.app (fn x => (print (ppIrStm x ^ "\n"))) body;
+												print "-------------------------------------\n")

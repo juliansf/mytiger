@@ -4,7 +4,10 @@ sig
 	(*Manejo de frames y levels*)
 	type level
 	type access
-	type frag
+	
+	val getResult : unit -> TigerFrame.frag list
+	val addProc : TigerTree.stm * TigerFrame.frame -> unit
+	val addString : TigerTemp.label * string -> unit
 	
 	val outermost : level
 	val newLevel : level * string * bool list -> level
@@ -12,19 +15,12 @@ sig
 	
 	val formals : level -> access list
 	val allocLocal : level -> bool -> access
-	val getResult : unit -> frag list
-	val addProc : TigerTree.stm * TigerFrame.frame -> unit
-	val addString : TigerTemp.label * string -> unit
 	
 	val preWhileFor : level -> unit
 	val posWhileFor : level -> unit
 	
 	(* Traduccion a codigo intermedio *)
 	type exp
-	
-	(* TEMPORAL *)
-	val pp : frag -> unit
-	(* TEMPORAL *)
 	
 	val procEntryExit : level * exp -> unit
 

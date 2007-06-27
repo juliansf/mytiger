@@ -21,6 +21,7 @@ fun main(tigername, args) =
 		val ir = ref false
 		val arbol_ir = ref false
 		val canon = ref false
+		val arbol_canon = ref false
 		val code = ref false
 		val flow = ref false
 		val inter = ref false
@@ -35,6 +36,8 @@ fun main(tigername, args) =
 			| "-ir" => (ir := true; false)
 			| "-irtree" => (arbol_ir := true; false)
 			| "-canon" => (canon := true; false)
+			| "-canontree" => (arbol_canon := true; false)
+			| "-canon-all" => (escapes := true; ir := true; canon := true; false)
 			| "-flow" => (flow := true; false)
 			| "-inter" => (inter := true; false)
 			| "-s" => (asm := true; false)
@@ -73,7 +76,16 @@ fun main(tigername, args) =
 			let 
 				val lfrag = TigerSemant.transProg expr 
 			in
-				if !arbol_ir then (List.map TigerTranslate.pp lfrag; ()) else ()
+				if !arbol_ir then 
+					(print "\n::: IR TREE :::\n"; List.app tigerpp.ppfrag lfrag) else ();
+				if !canon then
+					let
+						val lfrag = TigerCanon.canonize lfrag
+					in
+						if !arbol_canon then 
+							(print "\n::: CANONICAL TREE :::\n"; List.app tigerpp.ppCanonFrag lfrag) else ()
+					end
+				else ()
 			end
 		else ()
 	end	handle e => ShowErrors e
