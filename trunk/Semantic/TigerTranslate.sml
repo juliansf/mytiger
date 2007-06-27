@@ -6,15 +6,15 @@ struct
 	open TigerTree
 	open TigerFrame
 	
+	type frag = TigerFrame.frag
+	
 	type level = { depth: int, lstack: label list ref, frame: frame, parent: frame option }
 	type access = level * TigerFrame.access
 	
-	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
-								| STRING of TigerTemp.label * string
-	
-	val lfrag : frag list ref = ref []
 	val outermost = {depth=0, lstack = ref [], frame = newFrame (namedlabel "_tigermain", []), parent=NONE }
 	
+	val lfrag : frag list ref = ref []
+							
 	fun getResult() = !lfrag
 	fun addProc(body, frame) = lfrag := PROC {body=body, frame=frame} :: (!lfrag) 
 	fun addString(label, string) = lfrag := STRING (label, string) :: (!lfrag)
@@ -240,18 +240,12 @@ struct
 	(* Construccion de un nuevo Fragmento de tipo PROC *)
 	fun procEntryExit (level:level, body) =
 		let
+			val body' = case body of Nx s => s | s => MOVE (TEMP RV, unEx s)
+									
 			val frame = #frame(level)
 			val funlabel = getFrameLabel(frame)
-			val procbody = seq[ LABEL (namedlabel "Prologo"), LABEL funlabel, unNx(body), LABEL (namedlabel "Epilogo")]
+			val procbody = seq[ LABEL funlabel, SEQ(LABEL (namedlabel "Prologo"), MOVE (MEM (TEMP SP), TEMP FP)), body', SEQ(LABEL (namedlabel "Epilogo"), MOVE (MEM (TEMP SP), TEMP FP))]
 		in
 			addProc(procEntryExit1 (procbody, frame), frame )
 		end	
-		
-			
-	(* TEMPORAL *)
-	fun pp (STRING (l, s)) = print (TigerTemp.labelname l ^ ": " ^ s ^ "\n")
-	| pp (PROC {body, frame}) = (tigerpp.printtree(BasicIO.std_out, body); 
-							print "\n-------------------------------------\n")
-	 
-	(* TEMPORAL *)
 end

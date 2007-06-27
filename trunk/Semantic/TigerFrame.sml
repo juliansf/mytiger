@@ -7,6 +7,9 @@ struct
 	datatype access = InFrame of int | InReg of TigerTemp.temp
 	type frame = {localOffset: int ref, formals: access list, label: TigerTemp.label}
 	
+	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
+							| STRING of TigerTemp.label * string
+	
 	val RV = namedtemp("RV")
 	val FP = namedtemp("FP")
 	val SP = namedtemp("SP")

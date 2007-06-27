@@ -28,10 +28,11 @@ ROOT=.
 LEXER=./Lexer
 PARSER=Parser
 SEMANTIC=Semantic
+CANON=Canonizer
 MISC=Misc
 BIN=bin
 
-LOADPATH=-I $(LEXER) -I $(PARSER) -I $(SEMANTIC) -I $(MISC)
+LOADPATH=-I $(LEXER) -I $(PARSER) -I $(MISC) -I $(SEMANTIC) -I $(CANON)
 
 .SUFFIXES :
 .SUFFIXES : .sig .sml .ui .uo
@@ -50,10 +51,11 @@ GRALOBJS= \
 	TigerTemp.uo \
 	TigerTree.uo \
 	TigerFrame.uo \
-	tigerpp.uo \
 	TigerTranslate.uo \
 	TigerEnv.uo \
 	TigerSemant.uo \
+	TigerCanon.uo \
+	tigerpp.uo \
 	tigermain.uo
 
 all: tiger
@@ -82,20 +84,24 @@ clean:
 	$(REMOVE) Parser.sig;\
 	$(REMOVE) Parser.sml;\
 	$(REMOVE) *.ui;\
-	$(REMOVE) *.uo;\
+	$(REMOVE) *.uo
 	
 	$(CD) $(LEXER);\
 	$(REMOVE) Scanner.sml;\
 	$(REMOVE) *.ui;\
-	$(REMOVE) *.uo;\
+	$(REMOVE) *.uo
 	
 	$(CD) $(MISC);\
 	$(REMOVE) *.ui;\
-	$(REMOVE) *.uo;\
+	$(REMOVE) *.uo
 	
 	$(CD) $(SEMANTIC);\
 	$(REMOVE) *.ui;\
-	$(REMOVE) *.uo;\
+	$(REMOVE) *.uo
+	
+	$(CD) $(CANON);\
+	$(REMOVE) *.ui;\
+	$(REMOVE) *.uo
 	
 	$(REMOVE) tigermain
 	$(REMOVE) *.ui
@@ -140,6 +146,8 @@ TigerEnv.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerEnv.sml
 TigerSemant.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerSemant.sig $(SEMANTIC)/TigerSemant.sml
+TigerCanon.uo:
+	$(MOSMLC) $(LOADPATH) $(CANON)/TigerCanon.sig $(CANON)/TigerCanon.sml
 tigerpp.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigerpp.sml
 	
