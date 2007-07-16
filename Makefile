@@ -1,10 +1,10 @@
 # Unix makefile for tigermain
 
-HOME=/usr/share
+HOME=/root
 MOSMLHOME=${HOME}/mosml
 MOSMLTOOLS=camlrunm $(MOSMLHOME)/tools
-MOSMLLEX=mosmllex
-MOSMLYACC=mosmlyac -v
+MOSMLLEX=${MOSMLHOME}/bin/mosmllex
+MOSMLYACC=${MOSMLHOME}/bin/mosmlyac -v
 
 GCC=gcc
 CFLAGS= -g
@@ -29,10 +29,11 @@ LEXER=./Lexer
 PARSER=Parser
 SEMANTIC=Semantic
 CANON=Canonizer
+CODEGEN=Codegen
 MISC=Misc
 BIN=bin
 
-LOADPATH=-I $(LEXER) -I $(PARSER) -I $(MISC) -I $(SEMANTIC) -I $(CANON)
+LOADPATH=-I $(LEXER) -I $(PARSER) -I $(MISC) -I $(SEMANTIC) -I $(CANON) -I $(CODEGEN)
 
 .SUFFIXES :
 .SUFFIXES : .sig .sml .ui .uo
@@ -50,10 +51,14 @@ GRALOBJS= \
 	tigerescap.uo \
 	TigerTemp.uo \
 	TigerTree.uo \
+	TigerSparcFrame.uo \
 	TigerFrame.uo \
 	TigerTranslate.uo \
 	TigerEnv.uo \
 	TigerSemant.uo \
+	TigerAssem.uo \
+	TigerSparcGen.uo \
+	TigerCodegen.uo \
 	TigerCanon.uo \
 	tigerpp.uo \
 	tigermain.uo
@@ -70,7 +75,7 @@ Parser.sml Parser.sig: $(PARSER)/Parser.y
 Scanner.sml: $(LEXER)/Scanner.lex
 	$(MOSMLLEX) $(LEXER)/Scanner.lex
 
-TigerAbs.sml: $(PARSER)/tigerabs.sml
+TigerAbs.sml: $(PARSER)/TigerAbs.sml
 
 TigerLineNumber.sml: $(MISC)/TigerLineNumber.sml
 
@@ -100,6 +105,10 @@ clean:
 	$(REMOVE) *.uo
 	
 	$(CD) $(CANON);\
+	$(REMOVE) *.ui;\
+	$(REMOVE) *.uo
+	
+	$(CD) $(CODEGEN);\
 	$(REMOVE) *.ui;\
 	$(REMOVE) *.uo
 	
@@ -138,6 +147,8 @@ TigerTemp.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTemp.sig $(SEMANTIC)/TigerTemp.sml
 TigerTree.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTree.sml
+TigerSparcFrame.uo:
+	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerSparcFrame.sig $(SEMANTIC)/TigerSparcFrame.sml	
 TigerFrame.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerFrame.sig $(SEMANTIC)/TigerFrame.sml	
 TigerTranslate.uo:
@@ -148,6 +159,12 @@ TigerSemant.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerSemant.sig $(SEMANTIC)/TigerSemant.sml
 TigerCanon.uo:
 	$(MOSMLC) $(LOADPATH) $(CANON)/TigerCanon.sig $(CANON)/TigerCanon.sml
+TigerAssem.uo:
+	$(MOSMLC) $(LOADPATH) $(CODEGEN)/TigerAssem.sig $(CODEGEN)/TigerAssem.sml
+TigerSparcGen.uo:
+	$(MOSMLC) $(LOADPATH) $(CODEGEN)/TigerSparcGen.sig $(CODEGEN)/TigerSparcGen.sml
+TigerCodegen.uo:
+	$(MOSMLC) $(LOADPATH) $(CODEGEN)/TigerCodegen.sig $(CODEGEN)/TigerCodegen.sml
 tigerpp.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigerpp.sml
 	

@@ -375,12 +375,32 @@ fun printtree (outstream, s0) =
 	 in  
 	 	stm(s0,0); sayln ""; BasicIO.flush_out outstream
 	 end
-	 
+
+(* Pritty-Printer para código intermedio sin canonizar*)	 
 fun ppfrag (TigerFrame.STRING (l, s)) = print (labelname l ^ ": " ^ s ^ "\n")
 	| ppfrag (TigerFrame.PROC {body, frame}) = (printtree(BasicIO.std_out, body); 
 																		  				print "\n-------------------------------------\n")
 
+(* Pritty-Printer para código intermedio canonizado*)
 fun ppCanonFrag (TigerCanon.LITERAL (l, s)) = print (labelname l ^ ": " ^ s ^ "\n")
 	|	ppCanonFrag (TigerCanon.FUNC {body, frame}) = 
 		(List.app (fn x => (print (ppIrStm x ^ "\n"))) body;
 												print "-------------------------------------\n")
+												
+(* Pritty-Printer para Assem*)	(* Puede servir como base para format*)												
+
+fun ppAssem (TigerAssem.OPER {assem, ...}) = print assem
+  | ppAssem (TigerAssem.LABEL {assem, ...}) = print assem
+  | ppAssem (TigerAssem.MOVE {assem, ...}) = print assem
+
+
+
+
+
+
+
+
+
+
+										
+												
