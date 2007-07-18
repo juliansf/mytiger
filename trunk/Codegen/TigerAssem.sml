@@ -1,5 +1,6 @@
 structure TigerAssem :> TigerAssem =
 struct
+	open Regex
     type reg = string
     type temp = TigerTemp.temp
     type label = TigerTemp.label
@@ -14,8 +15,18 @@ struct
                               dst: temp,
                               src: temp}
 
-    fun format (TigerTemp.tempname) inst =
-        case inst of OPER {} =>        
-                   | LABEL {} =>
-                   | MOVE {} =>
+    fun format tempmap inst =
+		let
+  			fun f l n = tempmap (List.nth (l, valOf(Int.fromString(n))))
+  		in
+       		case inst of OPER {assem,src,dst,jump} => 
+					        replace (regcomp "`d([0-9]+)*" [Extended]) [Tr (f dst, 1)] ( 
+					        replace (regcomp "`s([0-9]+)*" [Extended]) [Tr (f src, 1)] assem)
+              		   | MOVE {assem, src, dst} =>
+					        replace (regcomp "`d([0-9]+)*" [Extended]) [Str (tempmap dst)] ( 
+					        replace (regcomp "`s([0-9]+)*" [Extended]) [Str (tempmap src)] assem)
+              		   | LABEL {assem, lab} => assem
+		end
+       
 end 
+

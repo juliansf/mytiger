@@ -187,7 +187,7 @@ struct
 		in
 			Nx (seq [ MOVE (index', unEx lo),
 				MOVE (TEMP tmphi, unEx hi),
-				CJUMP (GT, index', TEMP tmphi, loop, sale),
+				CJUMP (GT, index', TEMP tmphi, sale, loop),
 				LABEL sigue,
 				MOVE (index', BINOP (PLUS, index', CONST 1)),
 				LABEL loop,

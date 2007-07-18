@@ -50,7 +50,7 @@ fun codegen frame stm =
                 emit (OPER {assem="st `s0, ["^st(i)^"]\n",
                             src=[munchExp e2], dst=[], jump=NONE })
 
-          | munchStm (T.MOVE (MEM (e1), e2)) =
+          | munchStm (T.MOVE (MEM (e1), e2)) =        (*MIRAR DESPUES DE ARREGLAR format*)
                 emit (OPER {assem="st `s1, [`s0]\n",
                             src=[munchExp e1, munchExp e2], dst=[], jump=NONE })
 
@@ -64,7 +64,11 @@ fun codegen frame stm =
 
           | munchStm (T.MOVE (TEMP i, MEM (e2))) = 
                 emit (OPER {assem="ld `s0, `d0\n",
-                            src=[munchExp e2], dst=[i], jump=NONE})            
+                            src=[munchExp e2], dst=[i], jump=NONE})
+        
+		  | munchStm (T.MOVE (TEMP i, CONST 0)) =
+                emit (OPER {assem="mov `s0, `d0\n",
+                            src=[R0], dst=[i], jump=NONE})
 
           | munchStm (T.MOVE (TEMP i, CONST j)) =
                 emit (OPER {assem="set "^ st(j) ^", `d0\n",
@@ -79,12 +83,16 @@ fun codegen frame stm =
 
           (* Código para llamada a procedimiento, no hay valor de retorno *)        
           | munchStm (EXP (CALL (e, args))) =
-                emit (OPER {assem="CALL `s0\n",
+                emit (OPER {assem="call `s0\n",
                             src=munchExp(e)::munchArgs(0, args), dst=calldefs, jump=NONE})
 
           | munchStm (EXP (e)) =
-				emit(A.MOVE {assem="mov `d0,`s0\n",
+				emit(A.MOVE {assem="mov `s0,`d0\n",
 					src=munchExp e, dst=RV})
+
+          | munchStm (JUMP (T.NAME lab, labels)) =
+                emit(OPER {assem="ba " ^ TigerTemp.labelname(lab) ^ "\n",
+                           src=[], dst=[], jump=SOME labels} )
 
           | munchStm (JUMP (e, labels)) =
                 emit(OPER {assem="ba `s0\n",
@@ -105,7 +113,7 @@ fun codegen frame stm =
                 let
                     val d = List.nth(argregs,i)
                 in
-                    emit(OPER{assem="mov `s0, `d0", src=[munchExp h], dst=[d], jump=NONE});
+                    emit(OPER{assem="mov `s0, `d0\n", src=[munchExp h], dst=[d], jump=NONE});
                     d::munchArgs(i+1, t)
                 end
             else

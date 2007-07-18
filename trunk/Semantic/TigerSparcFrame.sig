@@ -10,6 +10,7 @@ sig
 	val RV : TigerTemp.temp
 	val FP : TigerTemp.temp
 	val SP : TigerTemp.temp
+	val R0 : TigerTemp.temp
 	val registers : register list
 	val tempMap : (register, TigerTemp.temp) tigertab.Tabla
 	val wordSize : int
