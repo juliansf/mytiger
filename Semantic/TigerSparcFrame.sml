@@ -13,18 +13,18 @@ struct
 	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
 							| STRING of TigerTemp.label * string
 	
-	val RV = namedtemp("RV")
-	val FP = namedtemp("FP")
-	val SP = namedtemp("SP")
-    val R0 = namedtemp("R0")
-    val r8 = namedtemp("R8")
-    val r9 = namedtemp("R9")
-    val r10 = namedtemp("R10")
-    val r11 = namedtemp("R11")
-    val r12 = namedtemp("R12")
-    val r13 = namedtemp("R13")
+	val RV = namedtemp("rv")
+	val FP = namedtemp("fp")
+	val SP = namedtemp("sp")
+    val R0 = namedtemp("r0")
+    val r8 = namedtemp("r8")
+    val r9 = namedtemp("r9")
+    val r10 = namedtemp("r10")
+    val r11 = namedtemp("r11")
+    val r12 = namedtemp("r12")
+    val r13 = namedtemp("r13")
 
-	val registers = ["RV","FP","SP","R0"]
+	val registers = ["rv","fp","sp","r0"]
 	val tempMap = tabNueva()
 
 	val wordSize = 8

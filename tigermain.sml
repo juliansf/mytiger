@@ -96,7 +96,7 @@ fun main(tigername, args) =
 
     						    val linstr = List.map (List.concat o auxCode) lfrag
     						in
-    						    if !code_list then List.app tigerpp.ppAssem (List.concat linstr) else ()
+    						    if !code_list then List.app (print o (TigerAssem.format TigerTemp.tempname)) (List.concat linstr) else ()
     						end
     					else ()
 					end
