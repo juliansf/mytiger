@@ -1,7 +1,13 @@
+/* Test de calculo de acceso a variables anidantes */
+
 let
-	var x:int := 1
+	var a:int := 1
+	function f () : int = 
+		let
+			function g () : int = a
+		in
+			(g(); a)
+		end
 in
-	while(x<5) do
-			while (x<6) do 
-				break
+	f()
 end

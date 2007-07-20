@@ -1,5 +1,8 @@
+/* Test de scopes: la variable i dentro del cuerpo del let, no es la
+   misma que la del bucle for. */
 for i:= 1 to 10 do
 	(let var i:= 0 in
-		(print(""); i; flush())
+		i
 	end;
 	i; ())
+
