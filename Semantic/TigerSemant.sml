@@ -160,7 +160,7 @@ struct
 								
 							val expl' =  #exp(firstexp) :: checkExp (tl expl)
 						in
-							{ exp=seqExp (expl', #exp(!lastexp), #ty(!lastexp) = UNIT), ty=(#ty(firstexp)) }
+							{ exp=seqExp (expl', #exp(!lastexp), #ty(!lastexp) = UNIT), ty=(#ty(!lastexp)) }
 						end
 						
 				| trexp ( AssignExp ({ var, exp }, pos) ) =
@@ -236,7 +236,7 @@ struct
 						let
 							val { venv=venv', tenv=tenv', decs=expdecs} =
 								List.foldl (fn (x,y) => transDec (#venv(y), #tenv(y), x, level, #decs(y))) 
-													 {venv=venv, tenv=tenv, decs=[]} decs
+													 {venv=fromTable venv, tenv=fromTable tenv, decs=[]} decs
 							
 							val { exp=expbody, ty=tybody } = transExp ( venv', tenv', body, level )
 						in

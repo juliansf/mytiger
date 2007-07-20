@@ -1,14 +1,10 @@
-(
-let 
-	var x : int := 1
-	function f() : int = 
-		let function g() : int = f() in g() end
-in x := f() end;
+/* Test de calculo de static links */
 
-let
-	var a:int := 1
-	function f () : int = a
-in
-	f()
+let 
+	function f() : int = 
+		let 
+			function g() : int = f() 
+		in g() end
+in 
+	f() 
 end
-)
