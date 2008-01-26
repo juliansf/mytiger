@@ -208,16 +208,17 @@ struct
 				| trexp ( ForExp ({ var, escape, lo, hi, body }, pos) ) =
 						let
 							val { exp=explo, ty=tylo } = trexp lo
-							val { exp=exphi, ty=tyhi } = trexp hi
-							
-							val indexAccess = allocLocal level (!escape)
+							val { exp=exphi, ty=tyhi } = trexp hi												
 							
 							val venv' = fromTable venv
-							val venv' = tabRInsert venv' (var, VarEntry { access=indexAccess, ty=INT RO } )
+							val venv' = tabRInsert venv' (var, VarEntry { access = allocLocal level (!escape),
+															              ty = INT RO } )
+
+							val {exp=expv, ty} = transExp (venv', tenv, VarExp ((SimpleVar var), pos), level)
 							
 						in 
 							if not (isInt tylo) then Error ( ErrorForLowExp, pos ) else ();
-							if not (isInt tyhi) then Error ( ErrorForHiExp, pos ) else ();
+							if not (isInt tyhi) then Error ( ErrorForHiExp, pos ) else ();							
 							preWhileFor(level);
 							let 
 								val { exp=expbody, ty=tybody } = transExp ( venv', tenv, body, level )
@@ -225,7 +226,7 @@ struct
 								if tybody <> UNIT then Error ( ErrorForWrongBodyType, pos ) 
 								else
 									let 
-										val expFor = forExp (indexAccess, explo, exphi, expbody, level)
+										val expFor = forExp (expv, explo, exphi, expbody, level)
 									in 
 										posWhileFor(level);
 										{ exp=expFor, ty=UNIT } 

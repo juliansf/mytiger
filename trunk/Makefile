@@ -51,12 +51,12 @@ GRALOBJS= \
 	tigerescap.uo \
 	TigerTemp.uo \
 	TigerTree.uo \
+	TigerAssem.uo \
 	TigerSparcFrame.uo \
 	TigerFrame.uo \
 	TigerTranslate.uo \
 	TigerEnv.uo \
 	TigerSemant.uo \
-	TigerAssem.uo \
 	TigerSparcGen.uo \
 	TigerCodegen.uo \
 	TigerCanon.uo \
