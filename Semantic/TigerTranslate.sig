@@ -41,7 +41,7 @@ sig
 	val assignExp : exp * exp -> exp
 	val ifExp : exp * exp * exp * TigerAbs.ifop * bool -> exp
 	val whileExp : exp * exp * level -> exp
-	val forExp : access * exp * exp * exp * level -> exp
+	val forExp : exp * exp * exp * exp * level -> exp
 	val letExp : exp list * exp * bool -> exp
 	val breakExp: level -> exp
 	val arrayExp: exp * exp -> exp

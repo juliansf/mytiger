@@ -25,16 +25,11 @@ struct
 	
 	fun preWhileFor (level:level) = pushlb (#lstack(level)) (newlabel())
 	fun posWhileFor (level:level) = poplb (#lstack(level))
-	
-	fun sl_access (caller:level) (callee:level) =
-		TigerFrame.sl_access (#depth(caller) - #depth(callee))
-	
-	fun var_access (varlevel:level, access) (level:level) =
-		TigerFrame.var_access (access, #depth(level) - #depth(varlevel))
-	
-	fun newLevel 
-	(parent:level, name, formals) =
-		{depth = #depth(parent) + 1, lstack = ref [], frame = newFrame (namedlabel2 name, formals), parent = SOME (#frame(parent)) }
+
+	fun newLevel (parent:level, name, formals) = {depth = #depth(parent) + 1,
+												  lstack = ref [],
+												  frame = newFrame (namedlabel2 name, formals),
+												  parent = SOME (#frame(parent)) }
 		
 	fun getLevelLabel (level:level) = getFrameLabel(#frame(level))
 	
@@ -49,28 +44,28 @@ struct
 	| Cx of TigerTemp.label * TigerTemp.label -> TigerTree.stm (* Condicion *)
 
 	fun seq [a] = a
-		| seq (a::b::[]) = SEQ(a,b)
-		| seq (a::xs) = SEQ(a,seq xs)
+	  | seq (a::b::[]) = SEQ(a,b)
+	  | seq (a::xs) = SEQ(a,seq xs)
 	
 	(* Funciones desempaquetadoras de expresiones *)
 	fun unEx (Ex e) = e
-		|	unEx (Nx s) = ESEQ (s, CONST 0)
-		| unEx (Cx c) = 
+      | unEx (Nx s) = ESEQ (s, CONST 0)
+	  | unEx (Cx c) = 
 			let 
 				val (lv, lf) = (newlabel(), newlabel())
 				val temp = newtemp()
 			in
 				ESEQ ( seq [ MOVE ( TEMP temp, CONST 0 ),
-										 c (lv, lf),
-										 LABEL lv,
-										 MOVE ( TEMP temp, CONST 1 ),
-										 LABEL lf ],
-							TEMP temp )
+							 c (lv, lf),
+							 LABEL lv,
+							 MOVE ( TEMP temp, CONST 1 ),
+							 LABEL lf ],
+					   TEMP temp )
 			end
 			
 	fun unNx (Ex e) = EXP e
-		|	unNx (Nx s) = s
-		| unNx (Cx c) = 
+	  | unNx (Nx s) = s
+	  | unNx (Cx c) = 
 			let 
 				val (lv, lf) = (newlabel(), newlabel())
 			in
@@ -78,9 +73,9 @@ struct
 			end
 	
 	fun unCx (Ex (CONST n)) = (fn (lv, lf) => JUMP (NAME (if n = 0 then lf else lv), [lv, lf]))
-		|	unCx (Ex e) = (fn (lv, lf) => CJUMP ( NE, e, CONST 0, lv, lf ))
-		| unCx (Nx s) = Error ( ErrorInternalError "problemas con Translate.unCx!", 0)
-		| unCx (Cx c) = c
+      | unCx (Ex e) = (fn (lv, lf) => CJUMP ( NE, e, CONST 0, lv, lf ))
+	  | unCx (Nx s) = Error ( ErrorInternalError "problemas con Translate.unCx!", 0)
+	  | unCx (Cx c) = c
 		
 	(* Funciones de traduccion a codigo intemedio *)
 	fun unitExp () = Ex (CONST 0)
@@ -95,9 +90,17 @@ struct
 			Ex (NAME l)
 		end
 		
-	fun callExp (name, params, caller, callee, proc:bool) =
-		let 
-			val params' = sl_access caller callee :: List.map unEx params
+	fun callExp (name, params, caller:level, callee:level, proc:bool) =
+		let
+			(* sl_access computa el static link a pasar como 1er argumento en un CALL *)
+			(* !!! Ver cómo sumar el stack_bias de 2047 bytes !!!*)
+			fun sl_access ~1 = TEMP FP
+	  		  | sl_access  0 = MEM (BINOP (PLUS, CONST slOffset, TEMP FP))
+  			  | sl_access  n = MEM (BINOP (PLUS, CONST slOffset, sl_access (n-1)))
+  			  
+			(* Calculamos el static link y lo agregamos al comientzo de la lista de argumentos formales *)
+			val sl = sl_access ( #depth(caller) - #depth(callee) )
+			val params' = sl :: List.map unEx params
 		in
 			if not proc then
 				let
@@ -179,9 +182,9 @@ struct
 			Nx(seq[LABEL ls, (unCx test) (lv, lf), LABEL lv, unNx body, JUMP (NAME ls, [ls]), LABEL lf]) 
 		end
 		
-	fun forExp (index, lo, hi, body, level:level) =
+	fun forExp (var, lo, hi, body, level:level) =
 		let
-			val index' = var_access index level
+			val index' = unEx var
 			val (loop, sale, sigue) = (newlabel(), toplb(#lstack(level)), newlabel())
 			val tmphi = newtemp() 
 		in
@@ -221,7 +224,15 @@ struct
 		end		
 	
 	(* Traduccion de Variables *)
-	fun simpleVar (access, level) = Ex (var_access access level)
+	fun simpleVar ((varlevel:level, access), actuallevel:level) = 
+		let 
+			(* aux genera el código que recorre los static links hasta 
+			   llegar al frame en el nivel correspondiente *)
+			fun aux 0 = TEMP FP
+			  | aux n = MEM (BINOP (PLUS, CONST slOffset, aux (n-1)))
+		in
+			Ex (exp access (aux (#depth(actuallevel) - #depth(varlevel))))
+		end
 	
 	fun fieldVar (varaddr, offset) =
 			Ex ( MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, CONST offset), unEx varaddr)))
@@ -229,10 +240,10 @@ struct
 	fun subscriptVar (varaddr, expOffset) =
 			Ex ( MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, unEx expOffset), unEx varaddr)))
 	
-	(* Traduccion de declaraciones *)
-	fun varDec (access, init) = 
+	(* Traduccion de declaraciones de variables*)
+	fun varDec ( ( _ , access), init) = 
 		let
-			val varaddr = var_access access (#1(access))
+			val varaddr = exp access (TEMP FP)
 		in
 			Nx (MOVE (varaddr, unEx init))
 		end

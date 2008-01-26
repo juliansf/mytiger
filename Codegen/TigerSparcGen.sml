@@ -50,8 +50,8 @@ fun codegen frame stm =
                 emit (OPER {assem="st `s0, ["^st(i)^"]\n",
                             src=[munchExp e2], dst=[], jump=NONE })
 
-          | munchStm (T.MOVE (MEM (e1), e2)) =        (*MIRAR DESPUES DE ARREGLAR format*)
-                emit (OPER {assem="st `s1, [`s0]\n",
+          | munchStm (T.MOVE (MEM (e1), e2)) =
+				emit (OPER {assem="st `s1, [`s0]\n",
                             src=[munchExp e1, munchExp e2], dst=[], jump=NONE })
 
           | munchStm (T.MOVE (TEMP i, MEM (BINOP (PLUS, e1, CONST j)))) =
