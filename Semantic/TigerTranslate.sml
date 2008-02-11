@@ -33,7 +33,7 @@ struct
 		
 	fun getLevelLabel (level:level) = getFrameLabel(#frame(level))
 	
-	fun formals (level:level) = List.map (fn x => (level, x)) (TigerFrame.formals (#frame(level)))
+	fun formals (level:level) = tl (List.map (fn x => (level, x)) (TigerFrame.formals (#frame(level))))
 	
 	fun allocLocal (level:level) escapes =
 		(level, TigerFrame.allocLocal (#frame(level)) escapes)
@@ -43,10 +43,6 @@ struct
 	| Nx of TigerTree.stm (* No Result *)
 	| Cx of TigerTemp.label * TigerTemp.label -> TigerTree.stm (* Condicion *)
 
-	fun seq [a] = a
-	  | seq (a::b::[]) = SEQ(a,b)
-	  | seq (a::xs) = SEQ(a,seq xs)
-	
 	(* Funciones desempaquetadoras de expresiones *)
 	fun unEx (Ex e) = e
       | unEx (Nx s) = ESEQ (s, CONST 0)
@@ -93,12 +89,11 @@ struct
 	fun callExp (name, params, caller:level, callee:level, proc:bool) =
 		let
 			(* sl_access computa el static link a pasar como 1er argumento en un CALL *)
-			(* !!! Ver cómo sumar el stack_bias de 2047 bytes !!!*)
-			fun sl_access ~1 = TEMP FP
-	  		  | sl_access  0 = MEM (BINOP (PLUS, CONST slOffset, TEMP FP))
-  			  | sl_access  n = MEM (BINOP (PLUS, CONST slOffset, sl_access (n-1)))
+			fun sl_access ~1 = MEM (BINOP (PLUS, CONST stackBias, TEMP FP))
+	  		  | sl_access  0 = MEM (BINOP (PLUS, CONST (slOffset + stackBias), TEMP FP))
+  			  | sl_access  n = MEM (BINOP (PLUS, CONST (slOffset), sl_access (n-1)))
   			  
-			(* Calculamos el static link y lo agregamos al comientzo de la lista de argumentos formales *)
+			(* Calculamos el static link y lo agregamos al comienzo de la lista de argumentos formales *)
 			val sl = sl_access ( #depth(caller) - #depth(callee) )
 			val params' = sl :: List.map unEx params
 		in
@@ -228,7 +223,7 @@ struct
 		let 
 			(* aux genera el código que recorre los static links hasta 
 			   llegar al frame en el nivel correspondiente *)
-			fun aux 0 = TEMP FP
+			fun aux 0 = MEM (BINOP (PLUS, CONST stackBias, TEMP FP))
 			  | aux n = MEM (BINOP (PLUS, CONST slOffset, aux (n-1)))
 		in
 			Ex (exp access (aux (#depth(actuallevel) - #depth(varlevel))))
@@ -251,12 +246,12 @@ struct
 	(* Construccion de un nuevo Fragmento de tipo PROC *)
 	fun procEntryExit (level:level, body) =
 		let
-			val body' = case body of Nx s => s | s => MOVE (TEMP RV, unEx s)
+			val body' = case body of 
+			               Nx s => s
+			             | s => MOVE (TEMP I0, unEx s)
 									
 			val frame = #frame(level)
-			val funlabel = getFrameLabel(frame)
-			val procbody = seq[ LABEL funlabel, SEQ(LABEL (namedlabel "Prologo"), MOVE (MEM (TEMP SP), TEMP FP)), body', SEQ(LABEL (namedlabel "Epilogo"), MOVE (MEM (TEMP SP), TEMP FP))]
 		in
-			addProc(procEntryExit1 (procbody, frame), frame )
+			addProc(procEntryExit1 (body', frame), frame )
 		end	
 end

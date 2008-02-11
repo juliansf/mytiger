@@ -11,6 +11,8 @@ sig
 	val FP : TigerTemp.temp
 	val SP : TigerTemp.temp
 	val R0 : TigerTemp.temp
+	val I0 : TigerTemp.temp
+	
 	val specialregs : TigerTemp.temp list
 	val argregs : TigerTemp.temp list
 	val calleesaves : TigerTemp.temp list
@@ -20,6 +22,7 @@ sig
 	val wordSize : int
 	val prologSize : int
 	val slOffset : int
+	val stackBias : int
 	val externalCall : string * TigerTree.exp list -> TigerTree.exp
 	val newFrame : (TigerTemp.label * bool list) -> frame
 	val formals : frame -> access list

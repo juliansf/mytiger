@@ -20,7 +20,7 @@ fun relOp relop =
 
 fun codegen frame stm =
     let
-        (* Lista de las instrucciones en assembler para SPARC *)
+        (* Lista de las instrucciones en assembler para SPARC V9*)
         val ilist = ref (nil:instr list)
 
         (* Funcion que guarda las instrucciones emitidas *)
@@ -117,7 +117,9 @@ fun codegen frame stm =
                     d::munchArgs(i+1, t)
                 end
             else
-                [] (* AGREGAR CODIGO PARA PASAR ARGUMENTOS POR EL STACK!!!*)
+  	            (emit(OPER {assem="st `s0, [sp + "^ st(i * wordSize + 128 + stackBias) ^"]\n", 
+  	            		    src=[munchExp h], dst=[], jump=NONE});
+  	            munchArgs(i+1,t))
   
         and result(gen) = let val t = TigerTemp.newtemp() in gen t; t end
 
@@ -302,9 +304,7 @@ fun codegen frame stm =
             result(fn r =>
                 emit (OPER {assem="sra `s0, `s1, `d0\n",
                             src=[munchExp e1, munchExp e2], dst=[r], jump=NONE}))
-            
-
-          
+                     
           | munchExp(ESEQ _) = Error (ErrorInternalError "No debería llegar un ESEQ en TigerSparcGen.munchExp", 0)
           
           | munchExp _ = Error (ErrorInternalError "TigerSparcGen.munchExp pattern matching incompleto", 0)

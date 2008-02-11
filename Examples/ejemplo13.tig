@@ -1,8 +1,8 @@
-let 
-	type R = {a:int, b:R}
-	var v := R{a=1, b=R{a=2, b=R{a=3, b=nil} } }
-	
+(* Prueba de breaks *)
+let
+	var x:int := 1
 in
-	(v.b.b.a;
-	v.b.a)
+	while(x<5) do
+			while (x<6) do 
+				break
 end

@@ -7,7 +7,7 @@ struct
 	open TigerUtils
 	open TigerError
 	open TigerTranslate
-	
+
 	type venv = (string, enventry) Tabla 
 	type tenv = (string, ty) Tabla
 	type expty = { exp: TigerTranslate.exp, ty:ty }
@@ -31,7 +31,7 @@ struct
 								(* Obtenemos los parametros formales y el tipo del resultado *)
 								SOME (FunEntry { level, label, formals, result }) => 
 									{ flevel = level, label=label, formals=formals, result=result }
-							| _ => Error ( ErrorUndefinedFunction func, pos )
+							   | _ => Error ( ErrorUndefinedFunction func, pos )
 							
 							(* Obtenemos los tipos de los argumentos pasados a la funcion *)
 							val (expList,tyList) = 
@@ -346,39 +346,41 @@ struct
 
 					fun chkParam { name = argname, escape, typ } =
 						case tabSearch tenv typ of
-						SOME t => 
-							(case tabInsert fenv (argname, 0) of
-					    	SOME _ => Error ( ErrorDupFieldInFunDec (name, argname), pos)
-    				   | NONE => (t, !escape))
-						| NONE => Error ( ErrorUndefinedType typ, pos )
+						    SOME t => (case tabInsert fenv (argname, 0) of
+					    	     		 SOME _ => Error ( ErrorDupFieldInFunDec (name, argname), pos )
+    				           		   | NONE => (t, !escape))
+						  | NONE => Error ( ErrorUndefinedType typ, pos )
 
 					val (formals, escapes) = ListPair.unzip (List.map chkParam params)
 					
 					val result = case result of
-						SOME res => (
-							case tabSearch tenv res of
-								SOME t => t
-							|	NONE => Error ( ErrorUndefinedType res, pos ) )
-					| NONE => UNIT
+						SOME res => ( case tabSearch tenv res of
+										  SOME t => t
+							  		    | NONE => Error ( ErrorUndefinedType res, pos ) )
+					  | NONE => UNIT
 					
 					val funlevel = newLevel(level, name, escapes)
 				in
 					case tabInsert batchFunEnv (name, 0) of
 						SOME _ => Error ( ErrorFunAlreadyDeclared name, pos )
-					| NONE => (tabRInsert venv ( name, FunEntry { level=funlevel, label=getLevelLabel funlevel,formals=formals, result=result } ); ())
+					  | NONE => (tabRInsert venv ( name, FunEntry { level=funlevel, 
+					  												label=getLevelLabel funlevel,
+					  												formals=formals, result=result 
+					  											  } ); ())
 				end
 				
 			fun trdec2 ({ name, params, result, body }, pos) =
 				let				
-					fun insertField env { name=fname, escape, typ } =
+					fun insertField env ({name=fname, escape, typ} , access)=
 						case tabSearch tenv typ of
-				    	SOME ty => ( tabRInsert env (fname, VarEntry{ access=allocLocal level (!escape), ty=ty }); () )
+				    	SOME ty => ( tabRInsert env (fname, VarEntry{ access=access, ty=ty }); () )
 				    | NONE => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2.insertField!", pos )
 						
-					val venv' = fromTable venv
-					val _ = List.app (insertField venv') params
-					
 					val (FunEntry r) = valOf (tabSearch venv name)
+
+					val venv' = fromTable venv
+					val _ = List.app (insertField venv') (ListPair.zip (params, formals(#level(r))))
+					
 					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body, #level(r))
 					
 					val tyres = case tabSearch venv name of
