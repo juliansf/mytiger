@@ -25,4 +25,9 @@ struct
 	and relop =
 		EQ | NE | LT | LE | GT | GE (* signed *)
 	| ULT | ULE | UGT | UGE (* unsigned *)
+	
+	fun seq [a] = a
+	  | seq (a::b::[]) = SEQ(a,b)
+	  | seq (a::xs) = SEQ(a,seq xs)
+	
 end

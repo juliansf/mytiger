@@ -1,18 +1,15 @@
 (*
                     low addresses
 
-               +-------------------------+  --         
-     %sp  -->  | 16 dwords for storing   |   |
+       %sp --> +-------------------------+  --         
+               | 16 dwords for storing   |   |
                | LOCAL and IN registers  |   |
-               +-------------------------+   |
-   %sp+128 --> |  one-dword pointer to   |   |
-               | aggregate return value  |   |  190 bytes, reservo 192 para
-               +-------------------------+   |  que quede alineado en una dir
-   %sp+136 --> |   6 dwords for callee   |   |  múltiplo de 8.
-               |   to store register     |   |
-               |       arguments         |   |
-               +-------------------------+  --
-   %sp+176 --> |  outgoing parameters    |
+   %sp+128 --> +-------------------------+	 |  prologo obligatorio
+    		   |   6 dwords for callee   |	 |  
+               |   to store register     |	 |
+               |       arguments         |	 |
+   %sp+176 --> +-------------------------+  --
+    		   |  outgoing parameters    |
                |  past the 6th, if any   |
                +-------------------------+
                |  space, if needed, for  |
@@ -20,7 +17,7 @@
                |   and saved floating-   |
                |    point registers      |
                +-------------------------+
-
+						   ...
                +-------------------------+
                |    space dynamically    |
                |    allocated via the    |
@@ -31,8 +28,8 @@
                |    aggregates, and      |
                |   addressable scalar    |
                |       automatics        |
-               +-------------------------+
-    %fp  -->
+       %fp --> +-------------------------+
+
                      high addresses
 
 *)
@@ -52,52 +49,76 @@ struct
 	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
 							| STRING of TigerTemp.label * string
 	
-    val R0 = namedtemp("r0")
-	val FP = namedtemp("fp")
-	val SP = namedtemp("sp")
-	val RV = namedtemp("rv")
-	val RA = namedtemp("ra")
+	(* Registros del SparcV9 *)
+
+    val G0 = namedtemp("g0")	(* Zero Register *)
     val G1 = namedtemp("g1")
     val G2 = namedtemp("g2")
     val G3 = namedtemp("g3")
     val G4 = namedtemp("g4")
     val G5 = namedtemp("g5")
 
-    val O0 = namedtemp("o0")
+    val O0 = namedtemp("o0")	(* Return Value *)
     val O1 = namedtemp("o1")
     val O2 = namedtemp("o2")
     val O3 = namedtemp("o3")
     val O4 = namedtemp("o4")
     val O5 = namedtemp("o5")
+    val O6 = namedtemp("sp")    (* Stack Pointer *)
+    val O7 = namedtemp("o7")   
+    
+    val I0 = namedtemp("i0")
+    val I1 = namedtemp("i1")
+    val I2 = namedtemp("i2")
+    val I3 = namedtemp("i3")
+    val I4 = namedtemp("i4")
+    val I5 = namedtemp("i5")
+    val I6 = namedtemp("fp")    (* Frame Pointer *)
+    val I7 = namedtemp("i7")    (* Return Address *)
+    
+	(* Algunos alias *)
+    val R0 = G0
+	val FP = I6
+	val SP = O6
+	val RV = O0
+	val RA = I7
    
 	val specialregs = [RV, FP, SP, RA, R0]
 	val argregs = [O0, O1, O2, O3, O4, O5]
 	val calleesaves = [G2, G3]
 	val callersaves = [G1, G4, G5]
+    val calldefs = RV :: callersaves
 
-    val calldefs = RV :: RA :: callersaves          (*  Realmente se sobreescribe el RA en SPARC ?*)
 	val wordSize = 8
-	val prologSize = wordSize 
-	val incrLocal = ~wordSize
-	val slOffset = 0						(* Cuando defina la estructura del frame en SPARC 
-												   definir la posición exacta del static link.    *)
+	val prologSize = 176					(* 16 dwords (regs in y local) + 6 dwords (regs in) *)
+	val incrLocal = wordSize
+	val stackBias = 2047
+	val slOffset = 128						(* El offset del SL es el 1er dword para los register args *)
+	
     
 	fun externalCall (name, params) = CALL (NAME (namedlabel(name)), params)
 
-    (* Crea un nuevo frame y designa registros/stack a sus parámetros formales (argumentos). *)
-    (* VER argoffset, está al pedo!!!! NO HAY QUE UTILIZAR localOffset ???? *)
-    (* !!! MODIFICAR para que tenga en cuenta que los primeros 7 argumentos vienen en registros
-           y el resto van en stack !!! *)
+    (* Crea un nuevo frame y designa registros/stack a sus parámetros formales. *)
 	fun newFrame (name, formals) =
 		let
-			val argsoffset = ref 0
-			fun processFormals (arg, argList) = 
-				case arg of
-				     true  => (argsoffset := !argsoffset - incrLocal; InFrame(!argsoffset) :: argList) 
-				    |false => InReg (newtemp()) :: argList
+		    val inputRegs = ref [I0,I1,I2,I3,I4,I5]  (* Los primeros 5 estan en registros *)
+			val argsoffset = ref 128			    			
+
+			fun processFormals arg =
+			    let
+			        val access = case arg of
+				     			     true  => InFrame(!argsoffset) 
+			   				       | false => case !inputRegs of
+				    			                  [] => InFrame (!argsoffset)
+				    			                | r::rs => InReg r
+			    in
+				   (argsoffset := !argsoffset + incrLocal;
+				    inputRegs := tl (!inputRegs) handle Empty => ();
+				    access)
+				end
         in
-		    (*true::formals es para dejar como 1er arg al static link*)											
-			{localOffset = ref 0, formals = List.foldl processFormals [] (true::formals), label = name}		
+		    (* true::formals es para dejar como 1er arg al static link *)											
+			{localOffset = ref 0, formals = List.map processFormals (true::formals), label = name}		
 		end
 			
 	(* Devuelve una lista con los access de cada parámetro formal del frame *)
@@ -108,9 +129,10 @@ struct
 	(* Aloca una variable local en el frame pasado como argumento *)
 	fun allocLocal {localOffset, formals, label} escapes =
 		if escapes then
-		    (localOffset := !localOffset + incrLocal; InFrame(!localOffset) )
+		    (localOffset := !localOffset - incrLocal; InFrame(!localOffset) )
 		else InReg (newtemp())
 									 
+	(* Devuelve el código intermedio para acceder a una variable del frame *)
     fun exp (InReg r) _ = TEMP r
       | exp (InFrame offset) stackAddr = MEM (BINOP (PLUS, CONST offset, stackAddr))
 
@@ -119,8 +141,20 @@ struct
 	
 	fun getFrameLabel (frame:frame) = #label(frame)
 	
-	fun procEntryExit1 (body, frame) = body
-	
+	fun procEntryExit1 (body, frame) =
+	    let
+			val funlabel = getFrameLabel(frame)
+
+	    	val entry = [ LABEL funlabel,
+					  	  SEQ( LABEL (namedlabel "Prologo"),
+						       MOVE (MEM (BINOP (PLUS, TEMP FP, CONST (slOffset + stackBias))), TEMP I0))]
+
+			val exit = [SEQ( LABEL (namedlabel "Epilogo"),
+							 MOVE (MEM (TEMP SP), TEMP FP))]
+		in
+			seq (entry @ [body] @ exit) 
+	    end
+	    
     (*!!! OJO VER EL jump=SOME[] !!! pa' que mierda está?*)
 	fun procEntryExit2 (frame, body) =
 	    body @ [TigerAssem.OPER {assem="", src=[R0, RA, SP]@calleesaves, dst=[], jump=SOME[]}]

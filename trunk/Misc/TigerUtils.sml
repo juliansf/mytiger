@@ -69,4 +69,10 @@ struct
 		                                 x::path, (visited,cys))))
 		  val (xs,_) = ListPair.unzip graph
 	  in sort(xs, [], ([],[])) end;
+	  
+	  fun intRange m n =
+	      let
+		      fun aux 0 = [m]
+		        | aux k = m+k :: (aux (k-1))
+	      in List.rev (aux (n-m)) end    
 end
