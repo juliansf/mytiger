@@ -1,0 +1,11 @@
+/*Test para el coloreo y liveness*/
+let
+	var a:=0
+	var b:=0
+	var c:=0
+in
+	while b < 10 do
+	  (a := a + 1;
+	  c := b * 2;
+	  b := a + 2)
+end

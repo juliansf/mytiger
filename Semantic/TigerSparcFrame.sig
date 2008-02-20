@@ -18,6 +18,8 @@ sig
 	val calleesaves : TigerTemp.temp list
 	val callersaves : TigerTemp.temp list
 	val calldefs : TigerTemp.temp list
+	val precolored : TigerTemp.temp list
+	val registerlist : TigerTemp.temp list
 
 	val wordSize : int
 	val prologSize : int

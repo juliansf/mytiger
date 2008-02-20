@@ -67,16 +67,14 @@ fun codegen frame stm =
                             src=[munchExp e2], dst=[i], jump=NONE})
         
 		  | munchStm (T.MOVE (TEMP i, CONST 0)) =
-                emit (OPER {assem="mov `s0, `d0\n",
-                            src=[R0], dst=[i], jump=NONE})
+                emit (A.MOVE {assem="mov `s0, `d0\n", src=R0, dst=i})
 
           | munchStm (T.MOVE (TEMP i, CONST j)) =
                 emit (OPER {assem="set "^ st(j) ^", `d0\n",
                             src=[], dst=[i], jump=NONE})
 
           | munchStm (T.MOVE (TEMP i, e2)) =
-                emit (OPER {assem="mov `s0, `d0\n",
-                            src=[munchExp e2], dst=[i], jump=NONE})
+                emit (A.MOVE {assem="mov `s0, `d0\n", src=munchExp e2, dst=i})
 
           | munchStm (T.LABEL lab) =
                 emit(A.LABEL {assem=(TigerTemp.labelname lab) ^":\n", lab=lab})
@@ -87,8 +85,7 @@ fun codegen frame stm =
                             src=munchExp(e)::munchArgs(0, args), dst=calldefs, jump=NONE})
 
           | munchStm (EXP (e)) =
-				emit(A.MOVE {assem="mov `s0,`d0\n",
-					src=munchExp e, dst=RV})
+				emit(A.MOVE {assem="mov `s0,`d0\n",	src=munchExp e, dst=RV})
 
           | munchStm (JUMP (T.NAME lab, labels)) =
                 emit(OPER {assem="ba " ^ TigerTemp.labelname(lab) ^ "\n",
@@ -113,7 +110,7 @@ fun codegen frame stm =
                 let
                     val d = List.nth(argregs,i)
                 in
-                    emit(OPER{assem="mov `s0, `d0\n", src=[munchExp h], dst=[d], jump=NONE});
+                    emit(A.MOVE {assem="mov `s0, `d0\n", src=munchExp h, dst=d});
                     d::munchArgs(i+1, t)
                 end
             else

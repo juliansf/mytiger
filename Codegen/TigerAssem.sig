@@ -15,4 +15,6 @@ sig
                               src: temp}
                               
     val format : (temp->string) -> instr -> string
+    val isJump : instr -> bool
+    val isMove : instr -> bool
 end

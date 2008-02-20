@@ -9,4 +9,5 @@ sig
 	val listItemsMap : ('key, 'a) mapT -> ('key * 'a) list
 	val transformMap : ('a -> 'a) -> ('key,'a) mapT -> unit
 	val appMap       : ('key * 'a -> unit) -> ('key,'a) mapT -> unit
+	val mapPP : ('key -> string) -> ('a -> string) -> ('key,'a) mapT -> unit
 end

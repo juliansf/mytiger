@@ -6,6 +6,32 @@ struct
 	open TigerMap
 	open TigerSet
 
+(* Calula el conjunto de temporales que utiliza la instrucción ins *)
+	fun uses ins =
+	    let 
+	    	val usesSet = newSet comparetemps
+	    in
+	    	addListSet(usesSet,
+	        	case ins of
+	            	OPER {src=sl, ...} => sl
+	              | MOVE {src=sl, ...} => [sl]
+	              | _ => [] );
+	        usesSet
+	    end
+
+(* Calula el conjunto de temporales que define la instrucción ins *)
+fun defs ins =
+    let 
+    	val defsSet = newSet comparetemps
+    in
+    	addListSet(defsSet,
+        	case ins of
+            	OPER {dst=dl, ...} => dl
+              | MOVE {dst=dl, ...} => [dl]
+              | _ => [] );
+        defsSet
+    end 
+
 	fun liveness (instr) =
         let
     		val succmap = newMap Int.compare
@@ -20,32 +46,7 @@ struct
 			val _ = List.app (fn i => insertMap (liveout', i, newSet comparetemps)) index
 			val _ = List.app (fn i => insertMap (livein, i, newSet comparetemps)) index
 			val _ = List.app (fn i => insertMap (livein', i, newSet comparetemps)) index   		    		
-    		(* Calula el conjunto de temporales que utiliza la instrucción ins *)
-    		fun uses ins =
-    		    let 
-    		    	val usesSet = newSet comparetemps
-    		    in
-    		    	addListSet(usesSet,
-    		        	case ins of
-    		            	OPER {src=sl, ...} => sl
-    		              | MOVE {src=sl, ...} => [sl]
-    		              | _ => [] );
-    		        usesSet
-    		    end
-
-    		(* Calula el conjunto de temporales que define la instrucción ins *)
-     	    fun defs ins =
-    		    let 
-    		    	val defsSet = newSet comparetemps
-    		    in
-    		    	addListSet(defsSet,
-    		        	case ins of
-    		            	OPER {dst=dl, ...} => dl
-    		              | MOVE {dst=dl, ...} => [dl]
-    		              | _ => [] );
-    		        defsSet
-    		    end 
-    		
+    		    		
     		(* Calcula el conjunto de nodos sucesores de n *)
     		fun succ n =
     		    let 

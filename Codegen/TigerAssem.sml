@@ -27,6 +27,12 @@ struct
 					        replace (regcomp "`s([0-9]+)*" [Extended]) [Str (tempmap src)] assem)
               		   | LABEL {assem, lab} => assem
 		end
+
+	fun isJump (OPER {jump=SOME _,...}) = true
+	  | isJump _ = false
+	
+	fun isMove (MOVE _) = true
+	  | isMove _ = false
        
-end 
+end
 
