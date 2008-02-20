@@ -67,6 +67,15 @@ struct
     val O6 = namedtemp("sp")    (* Stack Pointer *)
     val O7 = namedtemp("o7")   
     
+    val L0 = namedtemp("l0")	(* L0 a L7 de uso local *)
+    val L1 = namedtemp("l1")
+    val L2 = namedtemp("l2")
+    val L3 = namedtemp("l3")
+    val L4 = namedtemp("l4")
+    val L5 = namedtemp("l5")
+    val L6 = namedtemp("l6")
+    val L7 = namedtemp("l7")    
+    
     val I0 = namedtemp("i0")
     val I1 = namedtemp("i1")
     val I2 = namedtemp("i2")
@@ -94,8 +103,12 @@ struct
 	val incrLocal = wordSize
 	val stackBias = 2047
 	val slOffset = 128						(* El offset del SL es el 1er dword para los register args *)
-	
-    
+
+	(* Esta sección es utilizada por el algoritmo de coloreo *)	
+	val precolored = [FP,SP,R0,RA,RV,I0,I1,I2,I3,I4,I5,I6,I7]    (*Ojo acá están duplicados I6 e I7*)
+    val registerlist = [G0,G1,G2,G3,G4,G5,O0,O1,O2,O3,O4,O5,O6,O7,
+    			        L0,L1,L2,L3,L4,L5,L6,L7,I0,I1,I2,I3,I4,I5,I6,I7]
+          
 	fun externalCall (name, params) = CALL (NAME (namedlabel(name)), params)
 
     (* Crea un nuevo frame y designa registros/stack a sus parámetros formales. *)

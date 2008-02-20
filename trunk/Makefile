@@ -33,8 +33,9 @@ CODEGEN=Codegen
 MISC=Misc
 BIN=bin
 LIVENESS=Liveness
+COLOR=Color
 
-LOADPATH=-I $(LEXER) -I $(PARSER) -I $(MISC) -I $(SEMANTIC) -I $(CANON) -I $(CODEGEN) -I $(LIVENESS)
+LOADPATH=-I $(LEXER) -I $(PARSER) -I $(MISC) -I $(SEMANTIC) -I $(CANON) -I $(CODEGEN) -I $(LIVENESS) -I $(COLOR)
 
 .SUFFIXES :
 .SUFFIXES : .sig .sml .ui .uo
@@ -52,6 +53,7 @@ GRALOBJS= \
 	tigerescap.uo \
 	TigerMap.uo \
 	TigerSet.uo \
+	TigerStack.uo \
 	TigerTemp.uo \
 	TigerTree.uo \
 	TigerAssem.uo \
@@ -64,6 +66,7 @@ GRALOBJS= \
 	TigerCodegen.uo \
 	TigerCanon.uo \
 	TigerFlow.uo \
+	TigerColor.uo \
 	tigerpp.uo \
 	tigermain.uo
 
@@ -120,6 +123,10 @@ clean:
 	$(REMOVE) *.ui;\
 	$(REMOVE) *.uo
 	
+	$(CD) $(COLOR);\
+	$(REMOVE) *.ui;\
+	$(REMOVE) *.uo
+	
 	$(REMOVE) tigermain
 	$(REMOVE) *.ui
 	$(REMOVE) *.uo
@@ -154,7 +161,9 @@ tigerescap.uo:
 TigerMap.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/TigerMap.sig $(MISC)/TigerMap.sml	
 TigerSet.uo:
-	$(MOSMLC) $(LOADPATH) $(MISC)/TigerSet.sig $(MISC)/TigerSet.sml		
+	$(MOSMLC) $(LOADPATH) $(MISC)/TigerSet.sig $(MISC)/TigerSet.sml
+TigerStack.uo:
+	$(MOSMLC) $(LOADPATH) $(MISC)/TigerStack.sig $(MISC)/TigerStack.sml	
 TigerTemp.uo:
 	$(MOSMLC) $(LOADPATH) $(SEMANTIC)/TigerTemp.sig $(SEMANTIC)/TigerTemp.sml
 TigerTree.uo:
@@ -179,6 +188,8 @@ TigerCodegen.uo:
 	$(MOSMLC) $(LOADPATH) $(CODEGEN)/TigerCodegen.sig $(CODEGEN)/TigerCodegen.sml
 TigerFlow.uo:
 	$(MOSMLC) $(LOADPATH) $(LIVENESS)/TigerFlow.sml
+TigerColor.uo:
+	$(MOSMLC) $(LOADPATH) $(COLOR)/TigerColor.sig $(COLOR)/TigerColor.sml
 tigerpp.uo:
 	$(MOSMLC) $(LOADPATH) $(MISC)/tigerpp.sml
 	

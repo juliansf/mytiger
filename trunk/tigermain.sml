@@ -41,7 +41,7 @@ fun main(tigername, args) =
             | "-code" => (code := true; false)
             | "-codelist" => (code_list := true; false)
             | "-code-all" => (escapes := true; ir := true; canon := true; code := true; false)
-			| "-flow" => (flow := true; false)
+			| "-flow" => (escapes := true; ir := true; canon := true; code := true; flow := true; false)
 			| "-s" => (asm := true; false)
 			| "-o" => (output := true; true)
 			| arg => 
@@ -96,7 +96,26 @@ fun main(tigername, args) =
 
     						    val linstr = List.map (List.concat o auxCode) lfrag
     						in
-    						    if !code_list then List.app (print o (TigerAssem.format TigerTemp.tempname)) (List.concat linstr) else ()
+    						    if !code_list then
+    						        List.app (print o (TigerAssem.format TigerTemp.tempname)) (List.concat linstr)
+    						    else ();
+    						    
+    						    if !flow then
+    						    	let
+    						    		fun print_instr il a = 
+    						    		    let val ins = List.nth(il,a)
+    						    		    in
+    						    		    	TigerAssem.format TigerTemp.tempname ins
+    						    		    end
+    						    		
+    						    		fun print_liveness x y = TigerMap.mapPP Int.toString (TigerSet.setPP TigerTemp.tempname) y
+    						    	in
+    						    	    (*List.app (fn x => print_liveness x (TigerFlow.liveness x)) linstr*)
+    						    	    List.app TigerColor.color linstr
+    						    	end
+    						        
+    						    else ()
+    						    
     						end
     					else ()
 					end
