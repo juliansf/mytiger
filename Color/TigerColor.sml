@@ -33,6 +33,8 @@ let
 	val color = newMap comparetemps
 
 	val k = List.length (TigerFrame.registerlist)
+	
+	val single = singletonSet comparetemps
 		
 	val adjSet = let
 					fun compareEdges ((t1,t2),(t3,t4)) = case (comparetemps (t1,t3), comparetemps(t2,t4)) of
@@ -140,11 +142,52 @@ let
 		forallSet aux initial
 	end
 	
+	fun Adjacent n =
+	    let val t = newSet comparetemps
+	    in
+	    	addListSet(t,stackToList selectStack);
+    	(* !!! Acá se puede mejorar, porque si tryPeekOrNew devuelve el newSet, no tiene sentido hacer el diff *)
+	    	differenceSet(tryPeekMapOrNew adjList n (newSet comparetemps), unionSet(coalescedNodes,t))
+	    end
+
+	fun EnableMoves nodes =
+	    forallSet (fn n =>
+	    	forallSet (fn m => if memberSet(activeMoves,m) then
+	    					       (differenceInSet(activeMoves, singletonSet Int.compare m);
+	    					       unionInSet(worklistMoves, singletonSet Int.compare m))
+	    					   else ()) (NodeMoves n)) nodes 
+	
+	fun DecrementDegree m =
+	    let val d = findMap(degree,m)
+		in
+			insertMap(degree,m,d-1);
+			if d = k then (
+				EnableMoves(unionSet(single m, Adjacent m));
+				differenceInSet(spillWorklist, single m);
+				if MoveRelated m then
+					unionInSet(freezeWorklist, single m)
+				else
+					unionInSet(simplifyWorklist, single m))
+			else ()
+		end
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:DecrementDegree(m)\n",0);
+
+
+	fun Simplify () =
+	    let val n = elemFromSet simplifyWorklist
+	    in
+	    	differenceInSet(simplifyWorklist, singletonSet comparetemps n);
+	    	pushStack n selectStack;
+	    	forallSet (fn m => DecrementDegree m) (Adjacent n)
+	    end
+    
+	
 in 
 	Build();
 	MakeWorklist();
     printLists();
-    printWorklists()
+    printWorklists();
+    Simplify()
 end
 
 end
