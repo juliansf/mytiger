@@ -23,5 +23,6 @@ struct
 		fun labelname s = s
 		fun tempname t = "%"^t
 		val comparetemps = String.compare
+		fun equalTemp (a,b) = (a = b)
 	end
 end

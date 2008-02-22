@@ -10,4 +10,5 @@ sig
 	val labelname : label -> string
 	val tempname : temp -> string
 	val comparetemps : temp * temp -> order
+	val equalTemp : temp * temp -> bool
 end
