@@ -26,7 +26,16 @@ let
 	val activeMoves = newSet Int.compare			
 
 	val adjList = newMap comparetemps
-	val degree = newMap comparetemps
+	val degree = 
+		let
+			val t = newMap comparetemps
+			val max = valOf(Int.maxInt)
+		in
+			List.app (fn x => insertMap(t,x,max)) precolored;
+			t		
+		end
+
+	
 	val moveList = newMap comparetemps
 
 	val alias = newMap comparetemps
@@ -34,8 +43,15 @@ let
 
 	val k = List.length (TigerFrame.registerlist)
 	
-	val single = singletonSet comparetemps
-		
+	val singleTemp = singletonSet comparetemps
+	val singleInt = singletonSet Int.compare
+
+	val precolored = let val t = newSet comparetemps
+					 in
+					 	addListSet(t, TigerFrame.precolored);
+					 	t
+					 end
+					 			
 	val adjSet = let
 					fun compareEdges ((t1,t2),(t3,t4)) = case (comparetemps (t1,t3), comparetemps(t2,t4)) of
 													       (EQUAL,EQUAL) => EQUAL
@@ -50,19 +66,17 @@ let
 				        	              SOME s => s
 				        	            | NONE => e
 				        	            
-	fun AddEdge (u,v) = if memberSet(adjSet,(u,v)) = false andalso u <> v then
+	fun AddEdge (u,v) = if not(memberSet(adjSet,(u,v))) andalso not(equalTemp(u,v)) then
 							(addElemSet(adjSet, (u,v));
 							 addElemSet(adjSet, (v,u));
-							if not(List.exists (fn x => x = u) precolored) then
+							if not(memberSet(precolored, u)) then
 								(insertMap (adjList, u,
-									unionSet (tryPeekMapOrNew adjList u (newSet comparetemps),
-											  singletonSet comparetemps v));
+									unionSet (tryPeekMapOrNew adjList u (newSet comparetemps), singleTemp v));
 								 insertMap (degree, u, (tryPeekMapOrNew degree u 0) + 1))
 							else ();
-							if not(List.exists (fn x => x = v) precolored) then
+							if not(memberSet(precolored,v)) then
 								(insertMap (adjList, v,
-									unionSet (tryPeekMapOrNew adjList v (newSet comparetemps),
-				        	              	  singletonSet comparetemps u));
+									unionSet (tryPeekMapOrNew adjList v (newSet comparetemps), singleTemp u));
 				        	    insertMap (degree, v, (tryPeekMapOrNew degree v 0) + 1))
 							else ())
 						 else ()
@@ -94,36 +108,37 @@ let
 		
 		(*Esta función se aplica a la lista de instrucciones indexada y en orden inverso*)
 		fun aux (i,inst) =
-					(* En el caso que sea un salto actualizamos el conjunto de temporales vivos
-					   utilizando la información del análisis de liveness *)
-					(if isJump inst then
-						(setEmptySet live;
-						unionInSet (live, findMap (liveOut,i)))
-					else ();
-					if isMove inst then
-				            (differenceInSet (live, uses inst);
-				        	 forallSet (fn n => insertMap (moveList, n,
-				        	                      unionSet (tryPeekMapOrNew moveList n (newSet Int.compare),
-															singletonSet Int.compare i))
-												) (unionSet (uses inst,defs inst));
-							addElemSet (worklistMoves,i))
-				    else ();			    
-				    unionInSet (live, defs inst);
-				    forallSet (fn d => forallSet (fn l => AddEdge(l,d)) live) (defs inst);
-				    differenceInSet (live, defs inst);
-				    unionInSet (live, uses inst))
+			(* En el caso que sea un salto actualizamos el conjunto de temporales vivos
+			   utilizando la información del análisis de liveness *)
+			(if isJump inst then
+				(setEmptySet live;
+				unionInSet (live, findMap (liveOut,i)))
+			else ();
+			if isMove inst then
+		            (differenceInSet (live, uses inst);
+		        	 forallSet (fn n => insertMap (moveList, n,
+		        	                      unionSet (tryPeekMapOrNew moveList n (newSet Int.compare),
+													singleInt i))
+										) (unionSet (uses inst,defs inst));
+					addElemSet (worklistMoves,i))
+		    else ();			    
+		    unionInSet (live, defs inst);
+		    forallSet (fn d => forallSet (fn l => AddEdge(l,d)) live) (defs inst);
+		    differenceInSet (live, defs inst);
+		    unionInSet (live, uses inst))
 	in
 		List.app aux (List.rev (ListPair.zip (TigerUtils.intRange 0 ((List.length linstr) - 1),linstr)))
 	end
 	
-	fun NodeMoves n = intersectionSet (tryPeekMapOrNew moveList n (newSet Int.compare),unionSet(activeMoves, worklistMoves))
+	fun NodeMoves n = 
+	    intersectionSet (tryPeekMapOrNew moveList n (newSet Int.compare),unionSet(activeMoves, worklistMoves))
 	
 	fun MoveRelated n = not (isEmptySet (NodeMoves n))
 	
 	fun MakeWorklist () =
 	let
 		fun aux n = (
-		    differenceInSet(initial,singletonSet comparetemps n);
+		    differenceInSet(initial,singleTemp n);
 			if findMap(degree,n) >= k then
 				addElemSet(spillWorklist, n)
 			else if MoveRelated n then
@@ -132,19 +147,16 @@ let
 				addElemSet(simplifyWorklist,n)
 		 ) handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:MakeWorklist()\n",0);
 
-        (* Se utiliza como temporal para borrar los registros precoloreados de initial *)
-        (* Es necesario borrarlos ya que solo debo colorear los temporales *)
-		val t = newSet comparetemps
 	in
 		List.app (fn i=> unionInSet(initial,unionSet(uses i,defs i))) linstr;
-		addListSet(t, precolored);
-		differenceInSet(initial,t);
+		differenceInSet(initial,precolored);
 		forallSet aux initial
 	end
 	
 	fun Adjacent n =
 	    let val t = newSet comparetemps
 	    in
+	    	print (tempname n);
 	    	addListSet(t,stackToList selectStack);
     	(* !!! Acá se puede mejorar, porque si tryPeekOrNew devuelve el newSet, no tiene sentido hacer el diff *)
 	    	differenceSet(tryPeekMapOrNew adjList n (newSet comparetemps), unionSet(coalescedNodes,t))
@@ -153,35 +165,110 @@ let
 	fun EnableMoves nodes =
 	    forallSet (fn n =>
 	    	forallSet (fn m => if memberSet(activeMoves,m) then
-	    					       (differenceInSet(activeMoves, singletonSet Int.compare m);
-	    					       unionInSet(worklistMoves, singletonSet Int.compare m))
+	    					       (differenceInSet(activeMoves, singleInt m);
+	    					       unionInSet(worklistMoves, singleInt m))
 	    					   else ()) (NodeMoves n)) nodes 
 	
 	fun DecrementDegree m =
 	    let val d = findMap(degree,m)
-		in
+		in		
 			insertMap(degree,m,d-1);
 			if d = k then (
-				EnableMoves(unionSet(single m, Adjacent m));
-				differenceInSet(spillWorklist, single m);
+				EnableMoves(unionSet(singleTemp m, Adjacent m));
+				differenceInSet(spillWorklist, singleTemp m);
 				if MoveRelated m then
-					unionInSet(freezeWorklist, single m)
+					unionInSet(freezeWorklist, singleTemp m)
 				else
-					unionInSet(simplifyWorklist, single m))
+					unionInSet(simplifyWorklist, singleTemp m))
 			else ()
 		end
-		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:DecrementDegree(m)\n",0);
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:DecrementDegree(m)\n",0)
 
 
 	fun Simplify () =
 	    let val n = elemFromSet simplifyWorklist
 	    in
-	    	differenceInSet(simplifyWorklist, singletonSet comparetemps n);
+	    	differenceInSet(simplifyWorklist, singleTemp n);
 	    	pushStack n selectStack;
-	    	forallSet (fn m => DecrementDegree m) (Adjacent n)
+	    	forallSet DecrementDegree (Adjacent n)
 	    end
     
-	
+	fun AddWorkList u =
+		if not(memberSet(precolored,u)) andalso not(MoveRelated u) andalso findMap(degree,u) < k then
+		    ( differenceInSet(freezeWorklist, singleTemp u);
+		      unionInSet(simplifyWorklist, singleTemp u))
+		else ()
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:AddWorkList(n)\n",0)
+
+	fun OK(t,r) =
+		if findMap(degree,t) < k orelse memberSet(precolored,t) orelse memberSet(adjSet,(t,r)) then	true
+		else false
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:OK(t,r)\n",0)
+
+	fun Conservative nodes =
+		let val k' = ref 0
+		in
+			forallSet (fn n => if findMap(degree,n) >= k then k' := !k' + 1 else ()) nodes;
+			if !k' < k then true else false
+		end
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:Conservative nodes\n",0)
+		
+	fun GetAlias n = 
+		if memberSet(coalescedNodes,n) then
+			GetAlias(findMap(alias,n))
+	    else n
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:GetAlias(n)\n",0)
+
+	fun Combine(u,v) =
+	   (if memberSet(freezeWorklist,v) then
+		    differenceInSet(freezeWorklist, singleTemp v)
+		else differenceInSet(spillWorklist, singleTemp v);
+		unionInSet(coalescedNodes, singleTemp v);
+		insertMap(alias,v,u);
+		insertMap(moveList,u,unionSet(findMap(moveList,u),findMap(moveList,v)));
+		EnableMoves (singleTemp v);
+		forallSet (fn t => (AddEdge(t,u);DecrementDegree t)) (Adjacent v);
+		if findMap(degree,u) >= k andalso memberSet(freezeWorklist,u) then
+			(differenceInSet(freezeWorklist, singleTemp u);
+			 unionInSet(spillWorklist, singleTemp u))
+		else ())
+		
+    fun Coalesce () =
+        let
+        	val m = elemFromSet worklistMoves
+        	val ins = List.nth (linstr, m)
+        	val x = GetAlias (elemFromSet (uses ins))
+        	val y = GetAlias (elemFromSet (defs ins))
+        	val (u,v) = if memberSet(precolored, y) then (y,x) else (x,y)
+        	
+        	fun forallOK(u,v) = 
+        		let	val flag = ref true
+        		in
+        			forallSet (fn t => case (!flag, OK(t,u)) of
+        							        (true, false) => flag := false
+        							       | _ => ()) (Adjacent v);
+        			!flag
+        		end
+        	
+        in
+        	differenceInSet(worklistMoves, singleInt m);
+        	if equalTemp(u,v) then
+        		(unionInSet(coalescedMoves, singleInt m);
+        		 AddWorkList u)
+        	else if memberSet(precolored,v) orelse memberSet(adjSet,(u,v)) then
+        		(unionInSet(constrainedMoves,singleInt m);
+        		 AddWorkList u;
+        		 AddWorkList v)
+        	else if (memberSet(precolored,u) andalso forallOK(u,v)) orelse 
+        			(not(memberSet(precolored,u)) andalso Conservative(unionSet(Adjacent u, Adjacent v))) then
+        			
+        			(unionInSet(coalescedMoves, singleInt m);
+        			 Combine(u,v);
+        			 AddWorkList(u))
+        	else
+        		unionInSet(activeMoves, singleInt m)
+        end
+
 in 
 	Build();
 	MakeWorklist();
