@@ -66,8 +66,10 @@ fun codegen frame stm =
                 emit (OPER {assem="ld `s0, `d0\n",
                             src=[munchExp e2], dst=[i], jump=NONE})
         
-		  | munchStm (T.MOVE (TEMP i, CONST 0)) =
-                emit (A.MOVE {assem="mov `s0, `d0\n", src=R0, dst=i})
+		  (* !!! ESTA COMENTADO PARA QUE NO UTILIZE EL REGISTRO G0 !!! *)
+		  (* UNA VEZ RESUELTO COMO EVITAR COALESCER EL G0 DESCOMENTAR *)        
+(*		  | munchStm (T.MOVE (TEMP i, CONST 0)) =
+                emit (A.MOVE {assem="mov `s0, `d0\n", src=G0, dst=i}) *)
 
           | munchStm (T.MOVE (TEMP i, CONST j)) =
                 emit (OPER {assem="set "^ st(j) ^", `d0\n",

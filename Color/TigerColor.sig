@@ -1,4 +1,4 @@
 signature TigerColor =
 sig
-	val color: TigerAssem.instr list -> unit
+	val color: TigerAssem.instr list * TigerFrame.frame -> unit
 end

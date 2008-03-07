@@ -10,7 +10,7 @@ sig
 	val RV : TigerTemp.temp
 	val FP : TigerTemp.temp
 	val SP : TigerTemp.temp
-	val R0 : TigerTemp.temp
+	val G0 : TigerTemp.temp
 	val I0 : TigerTemp.temp
 	
 	val specialregs : TigerTemp.temp list
@@ -32,6 +32,8 @@ sig
 	val allocLocal : frame -> bool -> access
 	val string : TigerTemp.label -> string -> string
 	val getFrameLabel : frame -> TigerTemp.label
+	val getAccessOffset : access -> int
+
 	val exp : access -> TigerTree.exp -> TigerTree.exp
 	
 	val procEntryExit1 : TigerTree.stm * frame -> TigerTree.stm
