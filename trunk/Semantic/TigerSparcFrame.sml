@@ -39,6 +39,7 @@ struct
 	open TigerTemp
 	open tigertab
 	open TigerTree
+	open TigerError
 
 	type register = string
 
@@ -105,7 +106,7 @@ struct
 	val slOffset = 128						(* El offset del SL es el 1er dword para los register args *)
 
 	(* Esta sección es utilizada por el algoritmo de coloreo *)	
-	val precolored = [FP,SP,R0,RA,RV,I0,I1,I2,I3,I4,I5,I6,I7]    (*Ojo acá están duplicados I6 e I7*)
+	val precolored = [FP,SP,G0,RA,RV,I0,I1,I2,I3,I4,I5]
     val registerlist = [G0,G1,G2,G3,G4,G5,O0,O1,O2,O3,O4,O5,O6,O7,
     			        L0,L1,L2,L3,L4,L5,L6,L7,I0,I1,I2,I3,I4,I5,I6,I7]
           
@@ -153,6 +154,11 @@ struct
 	fun string label s = labelname(label) ^ ": .ascii \"" ^ s ^ "\"\n"
 	
 	fun getFrameLabel (frame:frame) = #label(frame)
+	
+	fun getAccessOffset (acc:access) =
+		case acc of
+	    	InFrame x => x
+		  | _ => Error (ErrorInternalError "Error interno en TigerSparcFrame.sml:getAccessOffset u\n",0)
 	
 	fun procEntryExit1 (body, frame) =
 	    let

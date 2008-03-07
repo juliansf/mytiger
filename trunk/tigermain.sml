@@ -91,13 +91,14 @@ fun main(tigername, args) =
 						
 						if !code then
     						let
-                                fun auxCode (TigerCanon.FUNC {body, frame}) = List.map (fn x => TigerCodegen.codegen frame x) body
-                                  | auxCode (TigerCanon.LITERAL _) = []     (* ARREGLARME!!! VER QUE HACER CON LOS LITERALES *)
+                                fun auxCode (TigerCanon.FUNC {body, frame}) = (List.concat (List.map (fn x => TigerCodegen.codegen frame x) body), SOME frame)
+                                (* ARREGLARME!!! VER QUE HACER CON LOS LITERALES *)
+                                  | auxCode (TigerCanon.LITERAL _) = ([],NONE)
 
-    						    val linstr = List.map (List.concat o auxCode) lfrag
+    						    val linstr = List.map auxCode lfrag
     						in
     						    if !code_list then
-    						        List.app (print o (TigerAssem.format TigerTemp.tempname)) (List.concat linstr)
+    						        List.app (fn (l,f) => List.app (print o (TigerAssem.format TigerTemp.tempname)) l) linstr
     						    else ();
     						    
     						    if !flow then
@@ -111,7 +112,9 @@ fun main(tigername, args) =
     						    		fun print_liveness x y = TigerMap.mapPP Int.toString (TigerSet.setPP TigerTemp.tempname) y
     						    	in
     						    	    (*List.app (fn x => print_liveness x (TigerFlow.liveness x)) linstr*)
-    						    	    List.app TigerColor.color linstr
+    						    	    List.app (fn (l,f) => case f of
+    						    	    					       SOME fr => TigerColor.color (l,fr)
+    						    	    					     | NONE => () 					    	    					       						 ) linstr
     						    	end
     						        
     						    else ()
