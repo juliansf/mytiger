@@ -24,7 +24,6 @@ fun main(tigername, args) =
 		val arbol_canon = ref false
 		val code = ref false
 		val code_list = ref false
-		val flow = ref false
 		val asm = ref false
 		val output = ref false
 		val inputs = ref []
@@ -41,8 +40,7 @@ fun main(tigername, args) =
             | "-code" => (code := true; false)
             | "-codelist" => (code_list := true; false)
             | "-code-all" => (escapes := true; ir := true; canon := true; code := true; false)
-			| "-flow" => (escapes := true; ir := true; canon := true; code := true; flow := true; false)
-			| "-s" => (asm := true; false)
+			| "-s" => (escapes := true; ir := true; canon := true; code := true; asm := true; false)
 			| "-o" => (output := true; true)
 			| arg => 
 					(if String.isPrefix "-" arg 
@@ -95,26 +93,28 @@ fun main(tigername, args) =
                                 (* ARREGLARME!!! VER QUE HACER CON LOS LITERALES *)
                                   | auxCode (TigerCanon.LITERAL _) = ([],NONE)
 
-    						    val linstr = List.map auxCode lfrag
+    						    val lfrag2 = List.map auxCode lfrag
     						in
     						    if !code_list then
-    						        List.app (fn (l,f) => List.app (print o (TigerAssem.format TigerTemp.tempname)) l) linstr
+    						        List.app (fn (l,f) => List.app (print o (TigerAssem.format TigerTemp.tempname)) l) lfrag2
     						    else ();
     						    
-    						    if !flow then
+    						    if !asm then
     						    	let
-    						    		fun print_instr il a = 
-    						    		    let val ins = List.nth(il,a)
-    						    		    in
-    						    		    	TigerAssem.format TigerTemp.tempname ins
-    						    		    end
-    						    		
-    						    		fun print_liveness x y = TigerMap.mapPP Int.toString (TigerSet.setPP TigerTemp.tempname) y
-    						    	in
-    						    	    (*List.app (fn x => print_liveness x (TigerFlow.liveness x)) linstr*)
-    						    	    List.app (fn (l,f) => case f of
-    						    	    					       SOME fr => TigerColor.color (l,fr)
-    						    	    					     | NONE => () 					    	    					       						 ) linstr
+										fun aux (l,f) =
+											case f of
+		    	    					        SOME fr =>
+		    	    					        	let
+		    	    					        		val {prolog, body, epilogue} = TigerColor.color (l,fr)
+		    	    					        	in
+		    	    					        		print prolog;
+		    	    					        		List.app (print o (TigerAssem.format TigerTemp.tempname)) body;
+		    	    					        		print epilogue
+		    	    					        	end
+		    	    					        
+		    	    					      | NONE => () 					    		
+	   						    	in
+    						    	    List.app aux lfrag2
     						    	end
     						        
     						    else ()

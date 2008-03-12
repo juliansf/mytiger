@@ -87,7 +87,7 @@ fun codegen frame stm =
                             src=munchExp(e)::munchArgs(0, args), dst=calldefs, jump=NONE})
 
           | munchStm (EXP (e)) =
-				emit(A.MOVE {assem="mov `s0,`d0\n",	src=munchExp e, dst=RV})
+				emit(A.MOVE {assem="mov `s0,`d0\n",	src=munchExp e, dst=O0})
 
           | munchStm (JUMP (T.NAME lab, labels)) =
                 emit(OPER {assem="ba " ^ TigerTemp.labelname(lab) ^ "\n",

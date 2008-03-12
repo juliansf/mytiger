@@ -101,7 +101,7 @@ struct
 				let
 					val temp = newtemp()
 				in
-					Ex (ESEQ (SEQ (EXP (CALL (NAME name, params')), MOVE (TEMP temp, TEMP RV)), TEMP temp))
+					Ex (ESEQ (SEQ (EXP (CALL (NAME name, params')), MOVE (TEMP temp, TEMP O0)), TEMP temp))
 				end
 			else
 				Nx (EXP (CALL (NAME name, params')))
@@ -131,7 +131,7 @@ struct
 		in
 			Ex (ESEQ (
 						SEQ (EXP (externalCall ("_createRecord", (CONST (List.length inits)::inits'))),
-								MOVE (TEMP temp, TEMP RV)), 
+								MOVE (TEMP temp, TEMP O0)), 
 						TEMP temp))
 		end
 	
@@ -214,7 +214,7 @@ struct
 		in
 			Ex (ESEQ (
 						SEQ (EXP (externalCall ("_createArray", [unEx size, unEx init]) ),
-								MOVE (TEMP temp, TEMP RV)), 
+								MOVE (TEMP temp, TEMP O0)), 
 						TEMP temp))
 		end		
 	
