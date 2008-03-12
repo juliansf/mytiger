@@ -46,13 +46,13 @@ let
 
 	val alias = newMap comparetemps
 
-	(* Creo el mapa de colores y asigno a los nodos precoloreados sus respectivos colores *)
+	(* Creo el mapa de colores y asigno a todos los registros sus respectivos colores *)
 	val color =
 		let 
 			val t =	newMap comparetemps
-			val n = (List.length TigerFrame.precolored) - 1
+			val n = (List.length TigerFrame.registerlist) - 1
 		in
-			List.app (fn (v,k) => insertMap(t,k,v)) (ListPair.zip (TigerUtils.intRange 0 n, TigerFrame.precolored));
+			List.app (fn (v,k) => insertMap(t,k,v)) (ListPair.zip (TigerUtils.intRange 0 n, TigerFrame.registerlist));
 			t
 		end
 
@@ -337,7 +337,7 @@ let
 	        	val n = popStack selectStack
 	        	val okColors = let val t = newSet Int.compare
 	        				   in
-	        				       addListSet(t,TigerUtils.intRange 0 (k-1)); t
+	        				       addListSet(t,TigerUtils.intRange 5 (k-1)); t
 	        				   end
 	        in
 	        	forallSet (fn w => if memberSet(unionSet(coloredNodes,precolored) ,GetAlias w) then
@@ -350,7 +350,8 @@ let
 	        	    insertMap(color,n,elemFromSet okColors))
 	        end;
 	        forallSet (fn n => insertMap(color,n,findMap(color,GetAlias n))) coalescedNodes)
-	
+			
+			
 	fun RewriteProgram () =
 		let
 			val newTemps = newSet comparetemps
@@ -455,11 +456,33 @@ let
 		if (not (isEmptySet spilledNodes)) then
 			(RewriteProgram(); main())
 		else ())
+
+	fun renameTemps () =
+		let
+			fun color2reg n = List.nth (registerlist,n)
+			fun temp2reg t = color2reg (findMap (color,t)) 
+			fun ltemp2regs l = List.map temp2reg l
+			fun aux (OPER {assem,src,dst,jump}) = OPER {assem=assem,src=ltemp2regs src, dst=ltemp2regs dst ,jump=jump}
+			  | aux (MOVE {assem,src,dst}) = MOVE {assem=assem, src=temp2reg src, dst=temp2reg dst}
+			  | aux x = x	
+		in
+			linstr := List.map aux (!linstr)
+		end
+		handle NotFound => Error (ErrorInternalError "Error interno en TigerColor.sml:renameTemps u\n",0)
+	
+	fun elimRedundantMoves() =
+		let
+			fun aux i = case i of
+							MOVE {src,dst,...} => if equalTemp(src,dst) then false else true
+						  | _ => true
+		in
+			linstr := List.filter aux (!linstr)
+		end
 in
 	main();
-	mapPP tempname Int.toString color;
-	print "\n";
-	List.app (print o (TigerAssem.format TigerTemp.tempname)) (!linstr)
+	renameTemps();
+	elimRedundantMoves();
+	procEntryExit3(!frame,!linstr)
 end
 
 end

@@ -65,7 +65,7 @@ struct
     val O3 = namedtemp("o3")
     val O4 = namedtemp("o4")
     val O5 = namedtemp("o5")
-    val O6 = namedtemp("sp")    (* Stack Pointer *)
+    val SP = namedtemp("sp")    (* Stack Pointer *)
     val O7 = namedtemp("o7")   
     
     val L0 = namedtemp("l0")	(* L0 a L7 de uso local *)
@@ -83,21 +83,15 @@ struct
     val I3 = namedtemp("i3")
     val I4 = namedtemp("i4")
     val I5 = namedtemp("i5")
-    val I6 = namedtemp("fp")    (* Frame Pointer *)
-    val I7 = namedtemp("i7")    (* Return Address *)
-    
-	(* Algunos alias *)
-    val R0 = G0
-	val FP = I6
-	val SP = O6
-	val RV = O0
-	val RA = I7
-   
-	val specialregs = [RV, FP, SP, RA, R0]
+    val FP = namedtemp("fp")    (* Frame Pointer *)
+    val I7 = namedtemp("i7")    (* Return Address - 8*)
+      
+	val specialregs = [O0, FP, SP, I7, G0]
 	val argregs = [O0, O1, O2, O3, O4, O5]
+	val inputRegs = [I0,I1,I2,I3,I4,I5]
 	val calleesaves = [G2, G3]
 	val callersaves = [G1, G4, G5]
-    val calldefs = RV :: callersaves
+    val calldefs = O0 :: callersaves
 
 	val wordSize = 8
 	val prologSize = 176					(* 16 dwords (regs in y local) + 6 dwords (regs in) *)
@@ -106,16 +100,15 @@ struct
 	val slOffset = 128						(* El offset del SL es el 1er dword para los register args *)
 
 	(* Esta sección es utilizada por el algoritmo de coloreo *)	
-	val precolored = [FP,SP,G0,RA,RV,I0,I1,I2,I3,I4,I5]
-    val registerlist = [G0,G1,G2,G3,G4,G5,O0,O1,O2,O3,O4,O5,O6,O7,
-    			        L0,L1,L2,L3,L4,L5,L6,L7,I0,I1,I2,I3,I4,I5,I6,I7]
+	val precolored = specialregs @ [I0,I1,I2,I3,I4,I5]
+    val registerlist = precolored @ [G1,G2,G3,G4,G5,O1,O2,O3,O4,O5,O7,L0,L1,L2,L3,L4,L5,L6,L7]
           
 	fun externalCall (name, params) = CALL (NAME (namedlabel(name)), params)
 
     (* Crea un nuevo frame y designa registros/stack a sus parámetros formales. *)
 	fun newFrame (name, formals) =
 		let
-		    val inputRegs = ref [I0,I1,I2,I3,I4,I5]  (* Los primeros 5 estan en registros *)
+		    val inputRegs = ref inputRegs  (* Los primeros 5 estan en registros *)
 			val argsoffset = ref 128			    			
 
 			fun processFormals arg =
@@ -164,20 +157,24 @@ struct
 	    let
 			val funlabel = getFrameLabel(frame)
 
-	    	val entry = [ LABEL funlabel,
-					  	  SEQ( LABEL (namedlabel "Prologo"),
-						       MOVE (MEM (BINOP (PLUS, TEMP FP, CONST (slOffset + stackBias))), TEMP I0))]
+			val calleesavesTemps = List.map (fn r => (newtemp(),r)) calleesaves
+			val usedInputRegs = ListPair.zip (inputRegs,#formals(frame))
+			
+			fun aux (ir, access) = case access of
+								       InReg r => MOVE (TEMP (newtemp()), TEMP r)
+									 | InFrame off => MOVE (MEM (BINOP (PLUS, TEMP FP, CONST (off+stackBias))), TEMP ir)
 
-			val exit = [SEQ( LABEL (namedlabel "Epilogo"),
-							 MOVE (MEM (TEMP SP), TEMP FP))]
+			val argsMoves = List.map aux usedInputRegs
+	    	val (entry,exit) = ListPair.unzip (List.map (fn (t,r)=>(MOVE (TEMP t, TEMP r),MOVE (TEMP r, TEMP t))) calleesavesTemps)
+
 		in
-			seq (entry @ [body] @ exit) 
+			seq (entry @ argsMoves @ [body] @ exit) 
 	    end
 	    
     (*!!! OJO VER EL jump=SOME[] !!! pa' que mierda está?*)
 	fun procEntryExit2 (frame, body) =
-	    body @ [TigerAssem.OPER {assem="", src=[R0, RA, SP]@calleesaves, dst=[], jump=SOME[]}]
+	    body @ [TigerAssem.OPER {assem="", src=[G0, I7, SP]@calleesaves, dst=[], jump=SOME[]}]
 	    
-(*	val procEntryExit3 : frame * TigerAssem.instr list -> 
-												{ prolog : string, body : TigerAssem.instr list, epiloge : string }*)
+	fun procEntryExit3 (frame, linstr) = {prolog="_", body=linstr, epilogue="Epilogue\n"}
+
 end

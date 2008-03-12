@@ -7,7 +7,7 @@ sig
 	datatype frag = PROC of { body : TigerTree.stm, frame : frame }
 								| STRING of TigerTemp.label * string
 	
-	val RV : TigerTemp.temp
+	val O0 : TigerTemp.temp
 	val FP : TigerTemp.temp
 	val SP : TigerTemp.temp
 	val G0 : TigerTemp.temp
@@ -38,6 +38,6 @@ sig
 	
 	val procEntryExit1 : TigerTree.stm * frame -> TigerTree.stm
 	val procEntryExit2 : frame * TigerAssem.instr list -> TigerAssem.instr list
-(*	val procEntryExit3 : frame * TigerAssem.instr list -> 
-												{ prolog : string, body : TigerAssem.instr list, epiloge : string }*)
+	val procEntryExit3 : frame * TigerAssem.instr list -> 
+												{ prolog : string, body : TigerAssem.instr list, epilogue : string }
 end
