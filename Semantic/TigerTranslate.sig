@@ -34,8 +34,9 @@ sig
 	val nilExp : unit -> exp
 	val intExp : int -> exp
 	val stringExp : string -> exp
-	val callExp : TigerTemp.label * exp list * level * level * bool -> exp
-	val opExp : TigerAbs.oper * exp * exp -> exp
+	val callExp : TigerTemp.label * exp list * level * level * bool * bool-> exp
+	val opExpInt : TigerAbs.oper * exp * exp -> exp
+	val opExpString : TigerAbs.oper * exp * exp -> exp
 	val recordExp : exp list -> exp
 	val seqExp : exp list * exp * bool -> exp
 	val assignExp : exp * exp -> exp

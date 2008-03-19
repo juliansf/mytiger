@@ -25,12 +25,12 @@ struct
 				| trexp ( StringExp (s,p) ) = { exp=stringExp s, ty=STRING }
 				| trexp ( CallExp ({ func, args }, pos) ) =
 						let 
-							val { flevel, label, formals, result } =
+							val { flevel, label, formals, result, extern } =
 							(* Buscamos la funcion en el entorno *)
 							case tabSearch venv func of
 								(* Obtenemos los parametros formales y el tipo del resultado *)
-								SOME (FunEntry { level, label, formals, result }) => 
-									{ flevel = level, label=label, formals=formals, result=result }
+								SOME (FunEntry { level, label, formals, result, extern }) => 
+									{ flevel = level, label=label, formals=formals, result=result, extern=extern }
 							   | _ => Error ( ErrorUndefinedFunction func, pos )
 							
 							(* Obtenemos los tipos de los argumentos pasados a la funcion *)
@@ -54,7 +54,7 @@ struct
 								( 
 									(* Se chequean los parametros *)
 									ListPair.all equalTypes (tyList, formals); 
-									{ exp=callExp(label, expList, level, flevel, result=UNIT) , ty=result } 
+									{ exp=callExp(label, expList, level, flevel, result=UNIT, extern) , ty=result } 
 								)
 							else
 								(* La cantidad de argumetnos pasados es menor o mayor a la esperada *)
@@ -70,27 +70,27 @@ struct
 							
 							fun i () = (* Int *)
 								case ( tyleft, tyright ) of
-									( INT _, INT _) => { exp=opExp(oper, expleft, expright), ty=INT RO }
+									( INT _, INT _) => { exp=opExpInt(oper, expleft, expright), ty=INT RO }
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 							
 							fun is () = (* Int, String *)
 								case ( tyleft, tyright ) of
-									( INT _, INT _) => { exp=opExp(oper, expleft, expright), ty=INT RO }
-								| ( STRING, STRING ) => { exp=opExp(oper, expleft, expright), ty=INT RO }
+									( INT _, INT _) => { exp=opExpInt(oper, expleft, expright), ty=INT RO }
+								| ( STRING, STRING ) => { exp=opExpString(oper, expleft, expright), ty=INT RO }
 								| _ => Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 								
 							fun isar () = isar' (tyleft, tyright) (* Int, String, Array, Record *)
 							and isar' (a, b) =
 								case ( a, b ) of
-									( INT _, INT _) => { exp=opExp(oper, expleft, expright), ty=INT RO }
-								| ( STRING, STRING ) => { exp=opExp(oper, expleft, expright), ty=INT RO }
+									( INT _, INT _) => { exp=opExpInt(oper, expleft, expright), ty=INT RO }
+								| ( STRING, STRING ) => { exp=opExpString(oper, expleft, expright), ty=INT RO }
 								| ( RECORD (_,uniq1), RECORD (_,uniq2) ) =>
-										if uniq1 = uniq2 then { exp=opExp(oper, expleft, expright), ty=INT RO }
+										if uniq1 = uniq2 then { exp=opExpInt(oper, expleft, expright), ty=INT RO }
 										else Error ( ErrorInvalidArgsTypesForOperator oper, pos )
-								| ( RECORD _, NIL ) => { exp=opExp(oper, expleft, expright), ty=INT RO }
-								| ( NIL, RECORD _ ) => { exp=opExp(oper, expleft, expright), ty=INT RO }
+								| ( RECORD _, NIL ) => { exp=opExpInt(oper, expleft, expright), ty=INT RO }
+								| ( NIL, RECORD _ ) => { exp=opExpInt(oper, expleft, expright), ty=INT RO }
 								| ( ARRAY (_,uniq1), ARRAY (_,uniq2) ) => 
-										if uniq1 = uniq2 then { exp=opExp(oper, expleft, expright), ty=INT RO }
+										if uniq1 = uniq2 then { exp=opExpInt(oper, expleft, expright), ty=INT RO }
 										else Error ( ErrorInvalidArgsTypesForOperator oper, pos )
 								| (NAME (n,tyr), b) => 
 										(case !tyr of
@@ -365,7 +365,7 @@ struct
 						SOME _ => Error ( ErrorFunAlreadyDeclared name, pos )
 					  | NONE => (tabRInsert venv ( name, FunEntry { level=funlevel, 
 					  												label=getLevelLabel funlevel,
-					  												formals=formals, result=result 
+					  												formals=formals, result=result, extern=false 
 					  											  } ); ())
 				end
 				
@@ -384,7 +384,7 @@ struct
 					val { exp=expbody, ty=tybody } = transExp (venv', tenv, body, #level(r))
 					
 					val tyres = case tabSearch venv name of
-						    SOME (FunEntry { level, label, formals, result }) => result
+						    SOME (FunEntry { level, label, formals, result, extern }) => result
 							| _ => Error ( ErrorInternalError "problemas con Semant.transDec.trdec2!", pos )
 				in
 					(if weakCompTypes (tyres, tybody) then (procEntryExit (#level(r), expbody))

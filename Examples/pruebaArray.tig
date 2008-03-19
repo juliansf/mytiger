@@ -1,0 +1,9 @@
+let
+	type arr = array of int
+	var x := arr[10] of 0
+	var y := arr[15] of 0
+	var a := 0
+in
+	(y[3] := x[5] + 10;
+	 a := y[3])
+end

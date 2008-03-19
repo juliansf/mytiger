@@ -29,11 +29,11 @@ fun codegen frame stm =
         (* Selección de instrucciones usando Maximal Munch *)        
         fun munchStm (SEQ(a,b)) = (munchStm a; munchStm b)
           | munchStm (T.MOVE (MEM (BINOP (PLUS, e1, CONST i)), e2)) =
-                emit (OPER {assem="st `s1, [`s0 + " ^st(i)^ "]\n",
+                emit (OPER {assem="stx `s1, [`s0 + " ^st(i)^ "]\n",
                             dst=[], src=[munchExp e1, munchExp e2], jump=NONE })
 
           | munchStm (T.MOVE (MEM (BINOP (PLUS, CONST i, e1)), e2)) =
-                emit (OPER {assem="st `s1, [`s0 + " ^st(i)^ "]\n",
+                emit (OPER {assem="stx `s1, [`s0 + " ^st(i)^ "]\n",
                             dst=[], src=[munchExp e1, munchExp e2], jump=NONE })
 
           | munchStm (T.MOVE (MEM (e1), MEM (e2))) =
@@ -42,34 +42,34 @@ fun codegen frame stm =
                     val e2' = munchExp e2
                     val t:TigerTemp.temp = TigerTemp.newtemp()
                 in
-                   emit(A.MOVE {assem="ld [`s0], `d0\n", src=e2', dst=t});
-                   emit(OPER {assem="st `s0, [`s1]\n", src=[t,e1'], dst=[], jump=NONE})  
+                   emit(A.MOVE {assem="ldx [`s0], `d0\n", src=e2', dst=t});
+                   emit(OPER {assem="stx `s0, [`s1]\n", src=[t,e1'], dst=[], jump=NONE})  
                 end
 
           | munchStm (T.MOVE (MEM (CONST i), e2)) =
-                emit (OPER {assem="st `s0, ["^st(i)^"]\n",
+                emit (OPER {assem="stx `s0, ["^st(i)^"]\n",
                             src=[munchExp e2], dst=[], jump=NONE })
 
           | munchStm (T.MOVE (MEM (e1), e2)) =
-				emit (OPER {assem="st `s1, [`s0]\n",
+				emit (OPER {assem="stx `s1, [`s0]\n",
                             src=[munchExp e1, munchExp e2], dst=[], jump=NONE })
 
           | munchStm (T.MOVE (TEMP i, MEM (BINOP (PLUS, e1, CONST j)))) =
-                emit (OPER {assem="ld [`s0 + " ^st(j)^ "], `d0\n",
+                emit (OPER {assem="ldx [`s0 + " ^st(j)^ "], `d0\n",
                             src=[munchExp e1], dst=[i], jump=NONE})
 
           | munchStm (T.MOVE (TEMP i, MEM (BINOP (PLUS, CONST j, e1)))) =
-                emit (OPER {assem="ld [`s0 + " ^st(j)^ "], `d0\n",
+                emit (OPER {assem="ldx [`s0 + " ^st(j)^ "], `d0\n",
                             src=[munchExp e1], dst=[i], jump=NONE})
 
           | munchStm (T.MOVE (TEMP i, MEM (e2))) = 
-                emit (OPER {assem="ld `s0, `d0\n",
+                emit (OPER {assem="ldx [`s0], `d0\n",
                             src=[munchExp e2], dst=[i], jump=NONE})
         
-		  (* !!! ESTA COMENTADO PARA QUE NO UTILIZE EL REGISTRO G0 !!! *)
-		  (* UNA VEZ RESUELTO COMO EVITAR COALESCER EL G0 DESCOMENTAR *)        
-(*		  | munchStm (T.MOVE (TEMP i, CONST 0)) =
-                emit (A.MOVE {assem="mov `s0, `d0\n", src=G0, dst=i}) *)
+		  (* Utilizamos un OPER en lugar de un MOVE para evitar que el registro g0 
+		  	 haga coalescing con i en el coloreo. *)        
+		  | munchStm (T.MOVE (TEMP i, CONST 0)) =
+                emit (OPER {assem="mov `s0, `d0\n", src=[G0], dst=[i], jump=NONE})
 
           | munchStm (T.MOVE (TEMP i, CONST j)) =
                 emit (OPER {assem="set "^ st(j) ^", `d0\n",
@@ -81,26 +81,34 @@ fun codegen frame stm =
           | munchStm (T.LABEL lab) =
                 emit(A.LABEL {assem=(TigerTemp.labelname lab) ^":\n", lab=lab})
 
-          (* Código para llamada a procedimiento, no hay valor de retorno *)        
-          | munchStm (EXP (CALL (e, args))) =
-                emit (OPER {assem="call `s0\n",
-                            src=munchExp(e)::munchArgs(0, args), dst=calldefs, jump=NONE})
+          (* Código para llamada a procedimiento, no hay valor de retorno *)
+          | munchStm (EXP (CALL (NAME l, args))) =
+          		let
+	          		val max = getMaxCallArgs (frame)
+	          	in
+                	emit (OPER {assem="call "^(TigerTemp.labelname l)^"\n",
+                            src=munchArgs(0, args), dst=calldefs, jump=NONE});
+				(* Calculamos el max nº de args de un call y lo guardamos en el frame para que 
+				   procEntryExit3 haga el save utilizando dicho valor *)                    
+                 	if List.length(args) > (!max) then max := List.length(args) else ();
+					emit (OPER {assem=" nop\n",src=[],dst=[],jump=NONE})
+				end 
 
           | munchStm (EXP (e)) =
 				emit(A.MOVE {assem="mov `s0,`d0\n",	src=munchExp e, dst=O0})
 
           | munchStm (JUMP (T.NAME lab, labels)) =
-                emit(OPER {assem="ba " ^ TigerTemp.labelname(lab) ^ "\n",
+                emit(OPER {assem="ba " ^ TigerTemp.labelname(lab) ^ "\n nop\n",
                            src=[], dst=[], jump=SOME labels} )
 
           | munchStm (JUMP (e, labels)) =
-                emit(OPER {assem="ba `s0\n",
+                emit(OPER {assem="ba `s0\n nop\n",
                            src=[munchExp e], dst=[], jump=SOME labels} )
 
           | munchStm (CJUMP (relop, e1, e2, lv, lf)) = (
                 emit(OPER {assem="cmp `s0, `s1\n",
                            src=[munchExp e1, munchExp e2], dst=[], jump=NONE});
-                emit(OPER {assem=(relOp relop) ^ TigerTemp.labelname(lv) ^ "\n", 
+                emit(OPER {assem=(relOp relop) ^ TigerTemp.labelname(lv) ^ "\n nop\n", 
                            src=[], dst=[], jump=SOME [lv,lf]}))
           
           | munchStm _ = Error (ErrorInternalError "TigerSparcGen.munchStm pattern matching incompleto", 0)
@@ -116,7 +124,7 @@ fun codegen frame stm =
                     d::munchArgs(i+1, t)
                 end
             else
-  	            (emit(OPER {assem="st `s0, [sp + "^ st(i * wordSize + 128 + stackBias) ^"]\n", 
+  	            (emit(OPER {assem="stx `s0, [%sp + "^ st(i * wordSize + 128 + stackBias) ^"]\n", 
   	            		    src=[munchExp h], dst=[], jump=NONE});
   	            munchArgs(i+1,t))
   
@@ -128,30 +136,35 @@ fun codegen frame stm =
                             src=[], dst=[r], jump=NONE}))            
         
           | munchExp(NAME l) =
-            result(fn r =>
-                emit (OPER {assem="ld " ^ TigerTemp.labelname(l) ^ ", `d0\n",
-                            src=[], dst=[r], jump=NONE}))
+          	let val t = TigerTemp.newtemp()
+          	in
+	            result(fn r => (emit (OPER {assem="sethi %hi(" ^ TigerTemp.labelname(l) ^ "), `d0\n",
+                    		        src=[], dst=[t], jump=NONE});
+                    		    emit (OPER {assem="or `s0, %lo(" ^ TigerTemp.labelname(l) ^ "), `d0\n",
+                    		        src=[t], dst=[r], jump=NONE})))
+          	end
+
                             
           | munchExp(TEMP t) = t
         
           | munchExp(MEM (BINOP (PLUS, e1, CONST i))) =
             result(fn r => 
-                emit (OPER {assem="ld [`s0 + " ^st(i)^ "], `d0\n",
+                emit (OPER {assem="ldx [`s0 + " ^st(i)^ "], `d0\n",
                             src=[munchExp e1], dst=[r], jump=NONE}))
 
           | munchExp(MEM (BINOP (PLUS, CONST i, e1))) =
             result(fn r => 
-                emit (OPER {assem="ld [`s0 + " ^st(i)^ "], `d0\n",
+                emit (OPER {assem="ldx [`s0 + " ^st(i)^ "], `d0\n",
                             src=[munchExp e1], dst=[r], jump=NONE}))
  
           | munchExp(MEM (CONST i)) =
             result(fn r =>
-                emit (OPER {assem="ld ["^st(i)^"], `d0\n",
+                emit (OPER {assem="ldx ["^st(i)^"], `d0\n",
                             src=[], dst=[r], jump=NONE}))
 
           | munchExp(MEM (e1)) =
             result(fn r =>
-                emit (OPER {assem="ld [`s0], `d0\n",
+                emit (OPER {assem="ldx [`s0], `d0\n",
                             src=[munchExp e1], dst=[r], jump=NONE}))
 
           | munchExp(BINOP (PLUS, e1, CONST i)) =
@@ -311,5 +324,16 @@ fun codegen frame stm =
         munchStm stm;
         rev(!ilist)
     end
+
+	fun literals litList =
+	let
+		val tmp = ref ""
+		fun aux (TigerCanon.LITERAL (lab,str)) =
+			tmp := (!tmp) ^".align 8\n"^((TigerTemp.labelname lab)^":\n.xword "^Int.toString(String.size str)^"\n.asciz \""^str^"\"\n")
+		  | aux _ = Error (ErrorInternalError "Error interno en TigerSparcGen.sml:literals", 0)
+	in
+		List.app aux litList;
+		".section \".rodata\"\n" ^ (!tmp) ^ "\n"
+	end
 
 end

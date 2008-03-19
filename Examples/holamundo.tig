@@ -1,0 +1,5 @@
+let
+	var x := "Hola mundo \n"
+in
+	print(x)
+end

@@ -33,8 +33,9 @@ sig
 	val string : TigerTemp.label -> string -> string
 	val getFrameLabel : frame -> TigerTemp.label
 	val getAccessOffset : access -> int
-
-	val exp : access -> TigerTree.exp -> TigerTree.exp
+	val getMaxCallArgs : frame -> int ref
+	
+	val exp : access -> int ->TigerTree.exp -> TigerTree.exp
 	
 	val procEntryExit1 : TigerTree.stm * frame -> TigerTree.stm
 	val procEntryExit2 : frame * TigerAssem.instr list -> TigerAssem.instr list

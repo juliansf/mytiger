@@ -89,36 +89,41 @@ fun main(tigername, args) =
 						
 						if !code then
     						let
-                                fun auxCode (TigerCanon.FUNC {body, frame}) = (List.concat (List.map (fn x => TigerCodegen.codegen frame x) body), SOME frame)
-                                (* ARREGLARME!!! VER QUE HACER CON LOS LITERALES *)
-                                  | auxCode (TigerCanon.LITERAL _) = ([],NONE)
+								val literals = List.filter (fn x => case x of 
+																	     TigerCanon.LITERAL _ => true
+																	   | _ => false) lfrag
 
-    						    val lfrag2 = List.map auxCode lfrag
+								val fragments = List.filter (fn x => case x of
+																		 (TigerCanon.FUNC _) => true
+															  		   | _ => false) lfrag
+
+                                fun auxCode (TigerCanon.FUNC {body, frame}) =
+									(List.concat (List.map (fn x => TigerCodegen.codegen frame x) body), frame)
+
+    							val lfrag2 = List.map auxCode fragments
     						in
     						    if !code_list then
     						        List.app (fn (l,f) => List.app (print o (TigerAssem.format TigerTemp.tempname)) l) lfrag2
     						    else ();
-    						    
+
     						    if !asm then
     						    	let
 										fun aux (l,f) =
-											case f of
-		    	    					        SOME fr =>
-		    	    					        	let
-		    	    					        		val {prolog, body, epilogue} = TigerColor.color (l,fr)
-		    	    					        	in
-		    	    					        		print prolog;
-		    	    					        		List.app (print o (TigerAssem.format TigerTemp.tempname)) body;
-		    	    					        		print epilogue
-		    	    					        	end
-		    	    					        
-		    	    					      | NONE => () 					    		
+											let
+												val {prolog, body, epilogue} = TigerColor.color (l,f)
+											in
+												print prolog;
+												List.app (print o (TigerAssem.format TigerTemp.tempname)) body;
+												print epilogue
+											end
 	   						    	in
-    						    	    List.app aux lfrag2
+										print (TigerCodegen.literals literals);
+										print ".section \".text\"\n";
+										print ".register %g2, #scratch\n";
+										print ".register %g3, #scratch\n";
+   						    	    	List.app aux lfrag2
     						    	end
-    						        
     						    else ()
-    						    
     						end
     					else ()
 					end

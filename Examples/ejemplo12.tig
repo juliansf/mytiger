@@ -1,13 +1,19 @@
 /* Test de calculo de acceso a variables anidantes */
 
 let
-	var a:int := 1
-	function f () : int = 
-		let
-			function g () : int = a
-		in
-			(g(); a)
-		end
+	var a:int := 2345
+	
+	function h () =
+	let
+		function f () = 
+			let
+				function g () = printInt(a)
+			in
+				g()
+			end
+	in
+		f()
+	end
 in
-	f()
+	h()
 end
