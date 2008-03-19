@@ -1,0 +1,6 @@
+let
+	type r = {a:int, b:int}
+	var x := r {a=1, b=2}
+in
+	x.a
+end

@@ -86,16 +86,16 @@ struct
 			Ex (NAME l)
 		end
 		
-	fun callExp (name, params, caller:level, callee:level, proc:bool) =
+	fun callExp (name, params, caller:level, callee:level, proc:bool, extern) =
 		let
 			(* sl_access computa el static link a pasar como 1er argumento en un CALL *)
-			fun sl_access ~1 = MEM (BINOP (PLUS, CONST stackBias, TEMP FP))
+			fun sl_access ~1 = BINOP (PLUS, CONST stackBias, TEMP FP)
 	  		  | sl_access  0 = MEM (BINOP (PLUS, CONST (slOffset + stackBias), TEMP FP))
   			  | sl_access  n = MEM (BINOP (PLUS, CONST (slOffset), sl_access (n-1)))
   			  
 			(* Calculamos el static link y lo agregamos al comienzo de la lista de argumentos formales *)
 			val sl = sl_access ( #depth(caller) - #depth(callee) )
-			val params' = sl :: List.map unEx params
+			val params' = if extern then List.map unEx params else sl::List.map unEx params
 		in
 			if not proc then
 				let
@@ -107,7 +107,26 @@ struct
 				Nx (EXP (CALL (NAME name, params')))
 		end
 	
-	fun opExp (oper, exp1, exp2) =
+	fun opExpString (oper, exp1, exp2) =
+		let
+			val (t1,t2,tr) = (newtemp(),newtemp(),newtemp())
+			val opc = case oper of
+					      Eq =>  0
+						| Neq => 1
+						| Lt =>  2
+						| Leq => 3
+						| Gt =>  4
+						| Geq => 5
+					 	| _ => Error (ErrorInternalError "Error interno en opExpString\n",0)
+		in
+			Ex (ESEQ ( seq [ MOVE (TEMP t1, unEx exp1),
+				 			 MOVE (TEMP t2, unEx exp2),
+				 			 EXP (CALL (NAME (namedlabel "_compString"),[CONST opc,TEMP t1, TEMP t2])),
+				 			 MOVE (TEMP tr, TEMP O0)],
+					 TEMP tr))
+		end
+
+	fun opExpInt (oper, exp1, exp2) =
 		let 
 			val exp1 = unEx exp1 and exp2 = unEx exp2
 		in
@@ -129,10 +148,9 @@ struct
 			val inits' = List.map unEx inits
 			val temp = newtemp()
 		in
-			Ex (ESEQ (
-						SEQ (EXP (externalCall ("_createRecord", (CONST (List.length inits)::inits'))),
-								MOVE (TEMP temp, TEMP O0)), 
-						TEMP temp))
+			Ex (ESEQ (seq [EXP (CALL (NAME (namedlabel "_createRecord"), (CONST (List.length inits)::inits'))),
+								MOVE (TEMP temp, TEMP O0)],
+					  TEMP temp))
 		end
 	
 	fun seqExp (expl, lastexp, proc) = 
@@ -186,11 +204,10 @@ struct
 			Nx (seq [ MOVE (index', unEx lo),
 				MOVE (TEMP tmphi, unEx hi),
 				CJUMP (GT, index', TEMP tmphi, sale, loop),
-				LABEL sigue,
-				MOVE (index', BINOP (PLUS, index', CONST 1)),
 				LABEL loop,
 				unNx body,
-				CJUMP (GE, index', TEMP tmphi, sale, sigue),
+				MOVE (index', BINOP (PLUS, index', CONST 1)),
+				CJUMP (GT, index', TEMP tmphi, sale, loop),
 				LABEL sale])
 		end
 	
@@ -213,8 +230,8 @@ struct
 			val temp = newtemp()
 		in
 			Ex (ESEQ (
-						SEQ (EXP (externalCall ("_createArray", [unEx size, unEx init]) ),
-								MOVE (TEMP temp, TEMP O0)), 
+						SEQ (EXP (CALL (NAME (namedlabel "_createArray"), [unEx init,unEx size])),
+							 MOVE (TEMP temp, TEMP O0)), 
 						TEMP temp))
 		end		
 	
@@ -223,22 +240,45 @@ struct
 		let 
 			(* aux genera el código que recorre los static links hasta 
 			   llegar al frame en el nivel correspondiente *)
-			fun aux 0 = MEM (BINOP (PLUS, CONST stackBias, TEMP FP))
+			fun aux 0 = BINOP (PLUS, CONST stackBias, TEMP FP)
 			  | aux n = MEM (BINOP (PLUS, CONST slOffset, aux (n-1)))
+			  
+			val depthdiff = #depth(actuallevel) - #depth(varlevel)
 		in
-			Ex (exp access (aux (#depth(actuallevel) - #depth(varlevel))))
+			(* Si la variable está en este nivel, no hay que recorrer el SL pero
+			   hay que sumar el stackBias al offset del acceso.*)
+			if depthdiff = 0 then
+				Ex (exp access stackBias (TEMP FP))
+			(* En caso contraro el stackBias está incluido por aux *)
+			else
+				Ex (exp access 0 (aux depthdiff))
 		end
 	
 	fun fieldVar (varaddr, offset) =
-			Ex ( MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, CONST offset), unEx varaddr)))
+		let
+			val varaddr' = unEx varaddr
+			val tmp = newtemp()
+		in
+			Ex( ESEQ (seq [MOVE (TEMP tmp, varaddr'),
+					  	   EXP (CALL (NAME (namedlabel "_checkNil"),[TEMP tmp]))],
+				MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, CONST offset), varaddr'))))		  
+		end
+			
 	
 	fun subscriptVar (varaddr, expOffset) =
-			Ex ( MEM (BINOP (PLUS, BINOP (MUL, CONST wordSize, unEx expOffset), unEx varaddr)))
-	
+		let
+			val (t1,t2) = (newtemp(),newtemp())
+		in
+			Ex ( ESEQ ( seq [MOVE (TEMP t1, unEx varaddr),
+							 MOVE (TEMP t2, unEx expOffset),
+							 EXP (CALL (NAME (namedlabel "_checkIndex"),[TEMP t1, TEMP t2]))],
+							 MEM (TEMP O0)))
+		end
+		
 	(* Traduccion de declaraciones de variables*)
 	fun varDec ( ( _ , access), init) = 
 		let
-			val varaddr = exp access (TEMP FP)
+			val varaddr = exp access stackBias (TEMP FP)
 		in
 			Nx (MOVE (varaddr, unEx init))
 		end

@@ -1,0 +1,6 @@
+let
+	var x := "hola \\"
+	var y := "Esto es una gran string"
+in
+	()
+end

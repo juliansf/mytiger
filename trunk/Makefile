@@ -62,9 +62,9 @@ GRALOBJS= \
 	TigerTranslate.uo \
 	TigerEnv.uo \
 	TigerSemant.uo \
+	TigerCanon.uo \
 	TigerSparcGen.uo \
 	TigerCodegen.uo \
-	TigerCanon.uo \
 	TigerFlow.uo \
 	TigerColor.uo \
 	tigerpp.uo \
