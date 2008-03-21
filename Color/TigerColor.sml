@@ -478,10 +478,21 @@ let
 		in
 			linstr := List.filter aux (!linstr)
 		end
+
+	fun elimJumpCons () =
+		let
+			fun aux ((l1 as OPER {jump=SOME [l],...})::(l2 as LABEL{lab,...})::ls) = 
+								if (labelname l) = (labelname lab) then l2 :: (aux ls)
+								else l1::l2::(aux ls)
+				| aux (x::xs) = x :: (aux xs)
+				| aux [] = []
+		in linstr := aux (!linstr) end
+		
 in
 	main();
 	renameTemps();
 	elimRedundantMoves();
+	elimJumpCons();
 	procEntryExit3(!frame,!linstr)
 end
 

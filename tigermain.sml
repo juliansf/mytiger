@@ -107,22 +107,20 @@ fun main(tigername, args) =
     						    else ();
 
     						    if !asm then
-    						    	let
+								    let
 										fun aux (l,f) =
-											let
-												val {prolog, body, epilogue} = TigerColor.color (l,f)
-											in
-												print prolog;
-												List.app (print o (TigerAssem.format TigerTemp.tempname)) body;
-												print epilogue
-											end
-	   						    	in
+										let
+											val {prolog, body, epilogue} = TigerColor.color (l,f)
+										in
+											print prolog;
+											List.app (print o (TigerAssem.format TigerTemp.tempname)) body;
+											print epilogue
+										end		
+									in
 										print (TigerCodegen.literals literals);
-										print ".section \".text\"\n";
-										print ".register %g2, #scratch\n";
-										print ".register %g3, #scratch\n";
-   						    	    	List.app aux lfrag2
-    						    	end
+										TigerCodegen.startCodeEmition();
+										List.app aux lfrag2		
+									end
     						    else ()
     						end
     					else ()

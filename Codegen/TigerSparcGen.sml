@@ -328,12 +328,32 @@ fun codegen frame stm =
 	fun literals litList =
 	let
 		val tmp = ref ""
+		
+		fun size s = Int.toString (String.size s)
+		
+		fun format lab size str = 
+			".align 8\n"^ lab ^":\n"^ 
+			".xword "^ size ^"\n"^
+			".asciz \""^ str ^"\"\n"
+
+		(* Para imprimir los literales, transformamos el string escapado "str" al real para poder calcular
+		   su largo real y después lo emitimos escapándolo a la C que es lo que espera el gnu assembler.*)
 		fun aux (TigerCanon.LITERAL (lab,str)) =
-			tmp := (!tmp) ^".align 8\n"^((TigerTemp.labelname lab)^":\n.xword "^Int.toString(String.size str)^"\n.asciz \""^str^"\"\n")
+			let
+				val str' = valOf (String.fromString str)
+				handle Option => Error (ErrorInternalError "Error interno en TigerSparcGen:literals:aux\n",0)
+			in
+				tmp := (!tmp) ^ (format (TigerTemp.labelname lab) (size str') (String.toCString str'))
+			end
+
 		  | aux _ = Error (ErrorInternalError "Error interno en TigerSparcGen.sml:literals", 0)
 	in
 		List.app aux litList;
 		".section \".rodata\"\n" ^ (!tmp) ^ "\n"
 	end
-
+	
+	fun startCodeEmition () =
+		(print ".section \".text\"\n";
+		 print ".register %g2, #scratch\n";
+		 print ".register %g3, #scratch\n")
 end
