@@ -2,12 +2,13 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include "gc.h"
 #define wSz 8
 
 long *_createArray(long init, long size)
 {
 	int i;
-	long *p = (long *)malloc((size+1) * wSz);
+	long *p = (long *)GC_MALLOC((size+1) * wSz);
 	if(p == NULL){
 		printf("Runtime error: out of memory\n");
 		exit(1);
@@ -32,7 +33,7 @@ long *_createRecord(long nfields, ...)
 	va_list va;
 	int i;
 	
-	long *p = (long *) malloc(nfields * wSz);
+	long *p = (long *) GC_MALLOC(nfields * wSz);
 
 	if(p == NULL){
 		printf("Runtime error: out of memory\n");
@@ -73,6 +74,7 @@ void printInt(long i)
 main (){
 	extern int _tigermain(long);
 	long sl;
+	GC_INIT();
 	_tigermain ((long)&sl);		/*Calculamos el static link de main*/
 }
 
@@ -88,7 +90,7 @@ tigerString *getstr()
 	if( (c=getchar()) == EOF ){
 		return &empty;
 	}else{
-		ret = (tigerString *)malloc(sizeof(tigerString));
+		ret = (tigerString *)GC_MALLOC(sizeof(tigerString));
 		ret->cto=1;
 		ret->string[0] = c;
 		return ret;
@@ -110,7 +112,7 @@ tigerString *chr(long i)
 		printf("Runtime error: chr(%ld) out of range\n",i);
 		exit(1);
  	}
- 	ret = (tigerString *)malloc(sizeof(tigerString));
+ 	ret = (tigerString *)GC_MALLOC(sizeof(tigerString));
  	ret->cto = 1;
  	ret->string[0] = i;
  	return ret;
@@ -129,7 +131,7 @@ tigerString *substring(tigerString *s, long first, long n)
 		printf("Runtime error: substring([%ld],%ld,%ld) out of range\n",s->cto,first,n);
 		exit(1);
 	}
-	ret = (tigerString *)malloc(sizeof(tigerString) + n);
+	ret = (tigerString *)GC_MALLOC(sizeof(tigerString) + n);
 
 	ret->cto = n;
 	for(i=0;i<n;i++)
@@ -141,7 +143,7 @@ tigerString *substring(tigerString *s, long first, long n)
 tigerString *concat(tigerString *s1, tigerString *s2)
 {
 	tigerString *ret;
-	ret = (tigerString *)malloc (sizeof(tigerString) + s1->cto + s2->cto);
+	ret = (tigerString *)GC_MALLOC (sizeof(tigerString) + s1->cto + s2->cto);
 	ret->cto = s1->cto + s2->cto;
 	memcpy(ret->string, s1->string, s1->cto);
 	memcpy(ret->string + s1->cto, s2->string, s2->cto);
